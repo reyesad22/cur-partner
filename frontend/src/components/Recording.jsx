@@ -83,6 +83,8 @@ const Recording = () => {
   const [shareMessage, setShareMessage] = useState("");
   const [sharing, setSharing] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
+  const [emailConfigured, setEmailConfigured] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   
   // Refs
   const videoRef = useRef(null);
