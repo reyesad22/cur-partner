@@ -199,30 +199,34 @@ const Reader = () => {
     if (!spoken || !target) return false;
     
     // Clean both strings
-    const cleanSpoken = spoken.replace(/[^\w\s]/g, '').trim();
-    const cleanTarget = target.replace(/[^\w\s]/g, '').trim();
+    const cleanSpoken = spoken.replace(/[^\w\s]/g, '').trim().toLowerCase();
+    const cleanTarget = target.replace(/[^\w\s]/g, '').trim().toLowerCase();
     
-    // Direct inclusion check
-    if (cleanTarget.includes(cleanSpoken) || cleanSpoken.includes(cleanTarget)) {
-      return cleanSpoken.length > 3;
-    }
+    // If spoken text is too short, require more matching
+    if (cleanSpoken.length < 3) return false;
     
-    // Use Fuse for fuzzy matching
-    if (fuseRef.current) {
-      const results = fuseRef.current.search(cleanSpoken);
-      if (results.length > 0 && results[0].item.index === currentLineIndex) {
-        return results[0].score < sensitivity;
+    // Get words
+    const spokenWords = cleanSpoken.split(/\s+/).filter(w => w.length > 2);
+    const targetWords = cleanTarget.split(/\s+/).filter(w => w.length > 2);
+    
+    if (spokenWords.length === 0 || targetWords.length === 0) return false;
+    
+    // Count matching words (allowing partial matches)
+    let matchCount = 0;
+    for (const spoken of spokenWords) {
+      for (const target of targetWords) {
+        if (target.includes(spoken) || spoken.includes(target)) {
+          matchCount++;
+          break;
+        }
       }
     }
     
-    // Word overlap check
-    const spokenWords = cleanSpoken.split(/\s+/);
-    const targetWords = cleanTarget.split(/\s+/);
-    const matchingWords = spokenWords.filter(word => 
-      targetWords.some(tw => tw.includes(word) || word.includes(tw))
-    );
+    // Calculate match ratio
+    const matchRatio = matchCount / Math.min(spokenWords.length, targetWords.length);
     
-    return matchingWords.length >= Math.min(3, Math.floor(targetWords.length * 0.5));
+    // Need at least 40% word match OR 3 matching words for longer lines
+    return matchRatio >= 0.4 || matchCount >= 3;
   };
 
   const handleNextLine = () => {
