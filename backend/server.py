@@ -152,6 +152,31 @@ class TTSResponse(BaseModel):
     audio_url: str
     line_id: str
 
+# ============== TAKE MODELS ==============
+
+class TakeCreate(BaseModel):
+    project_id: str
+    video_data: str  # Base64 encoded video
+    duration: int  # seconds
+    notes: Optional[str] = ""
+
+class TakeResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    project_id: str
+    user_id: str
+    take_number: int
+    duration: int
+    notes: str
+    is_favorite: bool
+    video_url: str
+    thumbnail_url: Optional[str] = None
+    created_at: str
+
+class TakeUpdate(BaseModel):
+    notes: Optional[str] = None
+    is_favorite: Optional[bool] = None
+
 # ============== HELPER FUNCTIONS ==============
 
 def hash_password(password: str) -> str:
