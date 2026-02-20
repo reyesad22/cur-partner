@@ -203,3 +203,57 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 
 **Models:**
 - TakeCreate, TakeResponse, TakeUpdate
+
+## Update (Feb 20, 2026 - Session 6)
+### Direct Submission, Membership & Cloud Storage
+
+**New Features:**
+
+1. **Direct Submission / Sharing**
+   - Create shareable links for takes
+   - Add recipient name, email, message
+   - Links expire after 72 hours
+   - Track view count
+   - Public shared view page at /shared/:token
+   - Copy link to clipboard
+
+2. **Membership Tiers**
+   - **Free Tier:**
+     - Download to device
+     - 5 takes per project
+     - Basic AI analysis
+   - **Pro Tier ($9.99/mo):**
+     - Unlimited cloud storage (5GB)
+     - Unlimited takes
+     - Direct submission to casting
+     - Shareable links
+     - Priority support
+     - Advanced AI analysis
+
+3. **Cloud Storage (Pro)**
+   - Cloudinary integration (placeholder - needs API keys)
+   - Signed upload URLs for secure uploads
+   - Track storage usage
+
+4. **Settings Page Enhanced**
+   - Membership status display
+   - Pro features list
+   - Upgrade button
+   - Storage usage meter (Pro)
+   - Cloud configuration status
+
+**API Endpoints:**
+- GET /api/membership/tiers
+- GET /api/membership/status
+- POST /api/membership/upgrade
+- GET /api/cloudinary/signature (Pro)
+- POST /api/projects/{id}/takes/{id}/upload-cloud
+- POST /api/projects/{id}/takes/{id}/share
+- GET /api/shared/{token} (public)
+- GET /api/projects/{id}/takes/{id}/shares
+- DELETE /api/shares/{id}
+
+**Components:**
+- SharedView.jsx - Public shared video page
+- Updated Settings.jsx - Membership info
+- Updated Recording.jsx - Share dialog
