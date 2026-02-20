@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "@/App";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -19,7 +18,11 @@ import {
   FileText,
   Users,
   Check,
-  AlertCircle
+  AlertCircle,
+  Sparkles,
+  Volume2,
+  User,
+  Zap
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,8 +34,10 @@ const ProjectDetail = () => {
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [selectedCharacter, setSelectedCharacter] = useState("");
   const [settingCharacter, setSettingCharacter] = useState(false);
+  const [generatingAudio, setGeneratingAudio] = useState(false);
 
   useEffect(() => {
     fetchProject();
@@ -61,19 +66,28 @@ const ProjectDetail = () => {
     }
 
     setUploading(true);
+    setAnalyzing(true);
     const formData = new FormData();
     formData.append("file", file);
 
     try {
+      toast.info("Uploading and analyzing script with AI...");
       const response = await api.post(`/projects/${id}/upload-pdf`, formData, {
-        headers: { "Content-Type": "multipart/form-data" }
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 120000 // 2 minute timeout for AI analysis
       });
       setProject(response.data);
-      toast.success("Script uploaded and parsed!");
+      
+      if (response.data.ai_analyzed) {
+        toast.success("Script analyzed! AI detected characters and emotions.");
+      } else {
+        toast.success("Script uploaded! (AI analysis unavailable)");
+      }
     } catch (error) {
       toast.error(error.response?.data?.detail || "Failed to upload PDF");
     } finally {
       setUploading(false);
+      setAnalyzing(false);
     }
   };
 
@@ -85,11 +99,31 @@ const ProjectDetail = () => {
       });
       setProject(response.data);
       setSelectedCharacter(character);
-      toast.success(`You're now playing ${character}`);
+      toast.success(`You're playing ${character}`);
     } catch (error) {
       toast.error("Failed to set character");
     } finally {
       setSettingCharacter(false);
+    }
+  };
+
+  const handleGenerateAllAudio = async () => {
+    setGeneratingAudio(true);
+    try {
+      toast.info("Generating AI voices for cue lines...");
+      const response = await api.post(`/projects/${id}/generate-all-audio`, {}, {
+        timeout: 300000 // 5 minute timeout
+      });
+      toast.success(response.data.message);
+      fetchProject(); // Refresh to get audio URLs
+    } catch (error) {
+      if (error.response?.status === 503) {
+        toast.error("ElevenLabs not configured. Add your API key in settings.");
+      } else {
+        toast.error("Failed to generate audio");
+      }
+    } finally {
+      setGeneratingAudio(false);
     }
   };
 
@@ -105,6 +139,26 @@ const ProjectDetail = () => {
     );
   };
 
+  const getCharacterAnalysis = (charName) => {
+    return project?.character_analysis?.find(c => c.name === charName);
+  };
+
+  const getEmotionColor = (emotion) => {
+    const colors = {
+      happy: "text-yellow-400",
+      sad: "text-blue-400",
+      angry: "text-red-400",
+      fearful: "text-purple-400",
+      screaming: "text-red-500",
+      whispering: "text-gray-400",
+      loving: "text-pink-400",
+      desperate: "text-orange-400",
+      sarcastic: "text-cyan-400",
+      neutral: "text-muted-foreground"
+    };
+    return colors[emotion] || "text-muted-foreground";
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -114,7 +168,7 @@ const ProjectDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background has-bottom-nav" data-testid="project-detail-page">
+    <div className="min-h-screen bg-background has-bottom-nav page-transition" data-testid="project-detail-page">
       {/* Header */}
       <header className="app-header border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -133,7 +187,7 @@ const ProjectDetail = () => {
 
             {project?.scenes?.length > 0 && project?.user_character && (
               <Link to={`/reader/${id}`}>
-                <Button className="btn-primary text-sm px-3 py-2 md:px-4 md:py-2" data-testid="start-reader-btn">
+                <Button className="btn-primary text-sm px-3 py-2 md:px-4 md:py-2 app-btn" data-testid="start-reader-btn">
                   <Play className="w-4 h-4 md:mr-2" />
                   <span className="hidden md:inline">Start Reader</span>
                 </Button>
@@ -145,11 +199,22 @@ const ProjectDetail = () => {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 app-scroll">
-        {/* Script Upload Section */}
+        {/* Step 1: Upload Script */}
         {(!project?.scenes || project.scenes.length === 0) ? (
-          <div className="text-center py-16">
+          <div className="text-center py-12 md:py-16">
+            <div className="mb-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 text-purple-400 text-sm mb-4">
+                <Sparkles className="w-4 h-4" />
+                AI-Powered Analysis
+              </div>
+              <h2 className="text-xl md:text-2xl font-bold mb-2">Upload Your Script</h2>
+              <p className="text-muted-foreground text-sm md:text-base">
+                AI will detect characters, emotions, and prepare voice readings
+              </p>
+            </div>
+            
             <div
-              className="w-full max-w-md mx-auto p-8 rounded-2xl border-2 border-dashed border-border hover:border-purple-500/50 transition cursor-pointer"
+              className="w-full max-w-md mx-auto p-8 rounded-2xl border-2 border-dashed border-border hover:border-purple-500/50 transition cursor-pointer app-card"
               onClick={() => fileInputRef.current?.click()}
               data-testid="upload-area"
             >
@@ -165,9 +230,11 @@ const ProjectDetail = () => {
               {uploading ? (
                 <div className="flex flex-col items-center">
                   <Loader2 className="w-12 h-12 text-purple-400 animate-spin mb-4" />
-                  <p className="text-lg font-medium">Parsing your script...</p>
+                  <p className="text-lg font-medium">
+                    {analyzing ? "AI Analyzing Script..." : "Uploading..."}
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    Detecting characters and dialogue
+                    Detecting characters & emotions
                   </p>
                 </div>
               ) : (
@@ -175,187 +242,200 @@ const ProjectDetail = () => {
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center mx-auto mb-4">
                     <Upload className="w-8 h-8 text-purple-400" />
                   </div>
-                  <h3 className="text-lg font-medium mb-2">Upload Your Script</h3>
-                  <p className="text-muted-foreground text-sm mb-4">
-                    Drop your PDF script here or click to browse
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    We'll automatically detect characters and dialogue
+                  <h3 className="text-lg font-medium mb-2">Drop PDF Here</h3>
+                  <p className="text-muted-foreground text-sm">
+                    or tap to browse files
                   </p>
                 </>
               )}
             </div>
           </div>
         ) : (
-          <div className="space-y-8">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="feature-card">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-purple-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{getTotalLines()}</p>
-                    <p className="text-sm text-muted-foreground">Total Lines</p>
-                  </div>
-                </div>
+          <div className="space-y-6">
+            {/* AI Analysis Badge */}
+            {project.ai_analyzed && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 border border-green-500/20">
+                <Sparkles className="w-5 h-5 text-green-400" />
+                <span className="text-sm text-green-400">AI Analysis Complete</span>
               </div>
-              
-              <div className="feature-card">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-pink-500/20 flex items-center justify-center">
-                    <Users className="w-5 h-5 text-pink-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{project.characters?.length || 0}</p>
-                    <p className="text-sm text-muted-foreground">Characters</p>
-                  </div>
-                </div>
+            )}
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-3 md:gap-4">
+              <div className="feature-card app-card p-4">
+                <FileText className="w-5 h-5 text-purple-400 mb-2" />
+                <p className="text-xl md:text-2xl font-bold">{getTotalLines()}</p>
+                <p className="text-xs text-muted-foreground">Lines</p>
               </div>
-              
-              <div className="feature-card">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
-                    <Mic className="w-5 h-5 text-green-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{getUserLines()}</p>
-                    <p className="text-sm text-muted-foreground">Your Lines</p>
-                  </div>
-                </div>
+              <div className="feature-card app-card p-4">
+                <Users className="w-5 h-5 text-pink-400 mb-2" />
+                <p className="text-xl md:text-2xl font-bold">{project.characters?.length || 0}</p>
+                <p className="text-xs text-muted-foreground">Characters</p>
+              </div>
+              <div className="feature-card app-card p-4">
+                <Mic className="w-5 h-5 text-green-400 mb-2" />
+                <p className="text-xl md:text-2xl font-bold">{getUserLines()}</p>
+                <p className="text-xs text-muted-foreground">Your Lines</p>
               </div>
             </div>
 
-            {/* Character Selection */}
-            <div className="feature-card">
-              <h3 className="text-lg font-semibold mb-4">Select Your Character</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Choose the character you'll be playing. Your lines will be highlighted differently.
-              </p>
+            {/* Step 2: Choose Character */}
+            <div className="feature-card app-card">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+                  <User className="w-4 h-4 text-purple-400" />
+                </div>
+                <h3 className="font-semibold">Choose Your Character</h3>
+              </div>
               
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <Select
-                    value={selectedCharacter}
-                    onValueChange={(value) => setSelectedCharacter(value)}
-                    disabled={settingCharacter}
-                  >
-                    <SelectTrigger className="bg-secondary border-border" data-testid="character-select">
-                      <SelectValue placeholder="Select your character" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      {project.characters?.map((char) => (
-                        <SelectItem key={char} value={char} data-testid={`character-option-${char}`}>
-                          {char}
-                          {char === project.user_character && (
-                            <span className="ml-2 text-green-400">(Current)</span>
-                          )}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              {/* Character Cards */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {project.characters?.map((char) => {
+                  const analysis = getCharacterAnalysis(char);
+                  const isSelected = selectedCharacter === char;
+                  
+                  return (
+                    <button
+                      key={char}
+                      onClick={() => setSelectedCharacter(char)}
+                      className={`p-3 rounded-xl text-left transition app-btn ${
+                        isSelected 
+                          ? "bg-purple-500/20 border-2 border-purple-500" 
+                          : "bg-secondary border-2 border-transparent"
+                      }`}
+                      data-testid={`character-btn-${char}`}
+                    >
+                      <p className="font-medium truncate">{char}</p>
+                      {analysis && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {analysis.gender} • {analysis.age_group}
+                        </p>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <Button
+                onClick={() => handleSetCharacter(selectedCharacter)}
+                disabled={!selectedCharacter || selectedCharacter === project.user_character || settingCharacter}
+                className="w-full btn-primary app-btn"
+                data-testid="set-character-btn"
+              >
+                {settingCharacter ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : project.user_character === selectedCharacter ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Selected
+                  </>
+                ) : (
+                  "Confirm Character"
+                )}
+              </Button>
+            </div>
+
+            {/* Step 3: Generate AI Voices */}
+            {project.user_character && (
+              <div className="feature-card app-card">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 rounded-full bg-pink-500/20 flex items-center justify-center">
+                    <Volume2 className="w-4 h-4 text-pink-400" />
+                  </div>
+                  <h3 className="font-semibold">AI Voice Reading</h3>
                 </div>
                 
+                <p className="text-sm text-muted-foreground mb-4">
+                  Generate emotional AI voices for all cue lines. The AI will read with the right feeling - angry, sad, screaming, etc.
+                </p>
+                
                 <Button
-                  onClick={() => handleSetCharacter(selectedCharacter)}
-                  disabled={!selectedCharacter || selectedCharacter === project.user_character || settingCharacter}
-                  className="btn-primary"
-                  data-testid="set-character-btn"
+                  onClick={handleGenerateAllAudio}
+                  disabled={generatingAudio}
+                  className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 app-btn"
+                  data-testid="generate-audio-btn"
                 >
-                  {settingCharacter ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : project.user_character === selectedCharacter ? (
+                  {generatingAudio ? (
                     <>
-                      <Check className="w-4 h-4 mr-2" />
-                      Selected
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating Voices...
                     </>
                   ) : (
-                    "Set Character"
+                    <>
+                      <Zap className="w-4 h-4 mr-2" />
+                      Generate AI Voices
+                    </>
                   )}
                 </Button>
               </div>
-            </div>
+            )}
 
-            {/* Script Preview */}
-            <div className="feature-card">
-              <h3 className="text-lg font-semibold mb-4">Script Preview</h3>
+            {/* Script Preview with Emotions */}
+            <div className="feature-card app-card">
+              <h3 className="font-semibold mb-4">Script Preview</h3>
               
               {!project.user_character && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 mb-4">
-                  <AlertCircle className="w-5 h-5 text-yellow-400" />
+                  <AlertCircle className="w-5 h-5 text-yellow-400 shrink-0" />
                   <p className="text-sm text-yellow-400">
-                    Select your character above to start rehearsing
+                    Select your character above to start
                   </p>
                 </div>
               )}
               
-              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+              <div className="space-y-3 max-h-[400px] overflow-y-auto momentum-scroll pr-2">
                 {project.scenes?.map((scene) => (
                   <div key={scene.id}>
-                    <h4 className="text-sm font-medium text-purple-400 mb-3">{scene.name}</h4>
-                    <div className="space-y-3">
-                      {scene.lines.slice(0, 20).map((line, idx) => (
-                        <div
-                          key={line.id}
-                          className={`p-3 rounded-lg ${
-                            line.is_user_line
-                              ? "bg-purple-500/10 border border-purple-500/20"
-                              : "bg-secondary"
-                          }`}
-                          data-testid={`script-line-${idx}`}
-                        >
-                          <p className="text-xs text-muted-foreground mb-1">
+                    {scene.lines.slice(0, 15).map((line, idx) => (
+                      <div
+                        key={line.id}
+                        className={`p-3 rounded-lg mb-2 ${
+                          line.is_user_line
+                            ? "bg-purple-500/10 border border-purple-500/20"
+                            : "bg-secondary/50"
+                        }`}
+                        data-testid={`script-line-${idx}`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-medium text-muted-foreground">
                             {line.character}
-                            {line.is_user_line && (
-                              <span className="ml-2 text-purple-400">(You)</span>
-                            )}
-                          </p>
-                          <p className={line.is_user_line ? "text-purple-200" : ""}>
-                            {line.text}
-                          </p>
+                            {line.is_user_line && <span className="text-purple-400 ml-1">(You)</span>}
+                          </span>
+                          {line.emotion && (
+                            <span className={`text-xs ${getEmotionColor(line.emotion.emotion)}`}>
+                              {line.emotion.emotion} • {line.emotion.intensity}
+                            </span>
+                          )}
                         </div>
-                      ))}
-                      {scene.lines.length > 20 && (
-                        <p className="text-sm text-muted-foreground text-center py-2">
-                          ...and {scene.lines.length - 20} more lines
+                        <p className={`text-sm ${line.is_user_line ? "text-purple-200" : ""}`}>
+                          {line.text}
                         </p>
-                      )}
-                    </div>
+                        {line.audio_url && (
+                          <div className="mt-2">
+                            <audio src={line.audio_url} controls className="w-full h-8" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {scene.lines.length > 15 && (
+                      <p className="text-sm text-muted-foreground text-center py-2">
+                        ...and {scene.lines.length - 15} more lines
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Upload New Script */}
-            <div className="feature-card">
-              <h3 className="text-lg font-semibold mb-2">Replace Script</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Upload a different PDF to replace the current script
-              </p>
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  data-testid="replace-script-btn"
-                >
-                  {uploading ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Upload className="w-4 h-4 mr-2" />
-                  )}
-                  Upload New PDF
+            {/* Start Rehearsal CTA */}
+            {project.user_character && (
+              <Link to={`/reader/${id}`} className="block">
+                <Button className="w-full h-14 btn-primary text-lg app-btn" data-testid="start-rehearsal-btn">
+                  <Play className="w-5 h-5 mr-2" />
+                  Start Rehearsal
                 </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </div>
-            </div>
+              </Link>
+            )}
           </div>
         )}
       </main>
