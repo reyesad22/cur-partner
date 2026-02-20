@@ -10,6 +10,7 @@ import re
 import json
 import base64
 import time
+import asyncio
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional, Literal
@@ -22,6 +23,7 @@ import io
 import cloudinary
 import cloudinary.utils
 import cloudinary.uploader
+import resend
 
 # AI Integrations
 from emergentintegrations.llm.chat import LlmChat, UserMessage
