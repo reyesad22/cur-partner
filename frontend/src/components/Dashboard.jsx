@@ -232,11 +232,11 @@ const Dashboard = () => {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="projects-grid">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6" data-testid="projects-grid">
             {projects.map((project) => (
               <div
                 key={project.id}
-                className="group feature-card cursor-pointer"
+                className="group feature-card app-card cursor-pointer"
                 data-testid={`project-card-${project.id}`}
               >
                 <div className="flex items-start justify-between mb-4">
