@@ -125,3 +125,40 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 **Integrations:**
 - OpenAI GPT-5.2 via Emergent LLM key
 - ElevenLabs TTS API (user's key)
+
+## Update (Feb 20, 2026 - Session 4)
+### Voice Preview & Self-Tape Recording Added
+
+**New Features:**
+
+1. **Voice Preview**
+   - Speaker icon next to each character card
+   - Click to hear a sample of that character's AI voice
+   - Uses ElevenLabs to generate sample from first line
+   - Play/pause controls
+
+2. **Self-Tape Recording**
+   - Full recording studio at /record/:id
+   - Camera preview with mirror mode
+   - Microphone controls
+   - 3-2-1 countdown before recording
+   - Recording timer display
+   - Pause/resume recording
+   - Script sidebar shows during recording
+   - Auto-advance lines with cue audio playback
+   - Download recording as WebM file
+   - Retake option
+   - Settings: camera on/off, mic on/off, auto-play cues, show slate
+
+3. **UI Improvements**
+   - Character cards now single column with voice preview
+   - Shows voice_type from AI analysis
+   - "Record Self-Tape" button on project detail
+   - Bottom nav hidden during recording
+
+**Routes:**
+- /record/:id - Self-tape recording studio
+
+**Components:**
+- Recording.jsx - Full recording feature
+- Updated ProjectDetail.jsx - Voice preview + record button
