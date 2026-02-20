@@ -371,6 +371,16 @@ const Reader = () => {
               
               <div className="flex items-center gap-3">
                 <Switch
+                  checked={autoPlayAudio}
+                  onCheckedChange={setAutoPlayAudio}
+                  id="auto-play-audio"
+                  data-testid="auto-play-audio-switch"
+                />
+                <Label htmlFor="auto-play-audio">Auto-play cue audio</Label>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <Switch
                   checked={showDebug}
                   onCheckedChange={setShowDebug}
                   id="show-debug"
@@ -465,6 +475,20 @@ const Reader = () => {
             data-testid="reset-btn"
           >
             <RotateCcw className="w-4 h-4 md:w-5 md:h-5" />
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMuted(!isMuted)}
+            className={`w-10 h-10 md:w-12 md:h-12 ${isMuted ? 'text-red-400' : ''}`}
+            data-testid="mute-btn"
+          >
+            {isMuted ? (
+              <VolumeX className="w-4 h-4 md:w-5 md:h-5" />
+            ) : (
+              <Volume2 className="w-4 h-4 md:w-5 md:h-5" />
+            )}
           </Button>
           
           <Button
