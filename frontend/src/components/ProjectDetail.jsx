@@ -23,7 +23,8 @@ import {
   Volume2,
   User,
   Zap,
-  Pause
+  Pause,
+  Video
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -536,12 +537,25 @@ const ProjectDetail = () => {
 
             {/* Start Rehearsal CTA */}
             {project.user_character && (
-              <Link to={`/reader/${id}`} className="block">
-                <Button className="w-full h-14 btn-primary text-lg app-btn" data-testid="start-rehearsal-btn">
-                  <Play className="w-5 h-5 mr-2" />
-                  Start Rehearsal
-                </Button>
-              </Link>
+              <div className="space-y-3">
+                <Link to={`/reader/${id}`} className="block">
+                  <Button className="w-full h-14 btn-primary text-lg app-btn" data-testid="start-rehearsal-btn">
+                    <Play className="w-5 h-5 mr-2" />
+                    Start Rehearsal
+                  </Button>
+                </Link>
+                
+                <Link to={`/record/${id}`} className="block">
+                  <Button 
+                    variant="outline" 
+                    className="w-full h-12 border-pink-500/50 text-pink-400 hover:bg-pink-500/10 app-btn"
+                    data-testid="record-self-tape-btn"
+                  >
+                    <Video className="w-5 h-5 mr-2" />
+                    Record Self-Tape
+                  </Button>
+                </Link>
+              </div>
             )}
           </div>
         )}
