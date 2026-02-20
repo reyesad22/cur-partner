@@ -257,3 +257,40 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 - SharedView.jsx - Public shared video page
 - Updated Settings.jsx - Membership info
 - Updated Recording.jsx - Share dialog
+
+## Update (Feb 21, 2026 - Session 7)
+### Critical Bug Fix: AI Voice Generation
+
+**Issue Fixed:**
+- "Generate AI Voices" feature was failing with 500 Internal Server Error
+- Root cause: ElevenLabs `VoiceSettings` is a frozen Pydantic model
+- The code was attempting to modify `base_settings.style` and `base_settings.stability` directly
+- Pydantic v2 frozen models don't allow attribute modification after creation
+
+**Fix Applied:**
+- Refactored `get_voice_settings_for_emotion()` function in `backend/server.py`
+- Changed from modifying existing VoiceSettings object to creating new one with adjusted values
+- Uses tuples for presets instead of pre-created frozen objects
+- Properly calculates intensity-adjusted values before constructing VoiceSettings
+
+**Testing:**
+- Verified fix with curl: Generated audio for 4 cue lines successfully
+- Verified in UI: Audio players now appear for cue lines (Sarah's lines)
+- Full flow works: Upload PDF → Select character → Generate AI Voices → Rehearse
+
+**Status:** ✅ FIXED AND VERIFIED
+
+## Pending Tasks
+
+### P1 - Next Priority
+1. **Video Download**: Add "Save to Phone" button for recorded takes
+2. **Direct Submission**: Allow users to send video takes to casting directors/agents via email
+
+### P2 - Future
+1. **Stripe Integration**: Payment processing for Pro membership
+2. **Backend Refactoring**: Break down monolithic server.py into modules
+3. **PostgreSQL Migration**: Optional migration to Supabase if requested
+
+## Known Issues
+- **Membership System**: UI-only, no payment integration (MOCKED)
+- None critical at this time
