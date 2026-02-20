@@ -453,30 +453,40 @@ def get_voice_settings_for_emotion(emotion: Optional[LineEmotion]) -> VoiceSetti
     if not emotion:
         return VoiceSettings(stability=0.5, similarity_boost=0.75, style=0.5, use_speaker_boost=True)
     
-    # Adjust settings based on emotion
-    settings = {
-        "happy": VoiceSettings(stability=0.4, similarity_boost=0.8, style=0.7, use_speaker_boost=True),
-        "sad": VoiceSettings(stability=0.7, similarity_boost=0.6, style=0.3, use_speaker_boost=False),
-        "angry": VoiceSettings(stability=0.3, similarity_boost=0.9, style=0.9, use_speaker_boost=True),
-        "fearful": VoiceSettings(stability=0.3, similarity_boost=0.7, style=0.6, use_speaker_boost=True),
-        "screaming": VoiceSettings(stability=0.2, similarity_boost=1.0, style=1.0, use_speaker_boost=True),
-        "whispering": VoiceSettings(stability=0.8, similarity_boost=0.5, style=0.2, use_speaker_boost=False),
-        "sarcastic": VoiceSettings(stability=0.5, similarity_boost=0.8, style=0.8, use_speaker_boost=True),
-        "loving": VoiceSettings(stability=0.6, similarity_boost=0.7, style=0.5, use_speaker_boost=False),
-        "desperate": VoiceSettings(stability=0.3, similarity_boost=0.85, style=0.85, use_speaker_boost=True),
+    # Base settings for each emotion (stability, similarity_boost, style, use_speaker_boost)
+    emotion_presets = {
+        "happy": (0.4, 0.8, 0.7, True),
+        "sad": (0.7, 0.6, 0.3, False),
+        "angry": (0.3, 0.9, 0.9, True),
+        "fearful": (0.3, 0.7, 0.6, True),
+        "screaming": (0.2, 1.0, 1.0, True),
+        "whispering": (0.8, 0.5, 0.2, False),
+        "sarcastic": (0.5, 0.8, 0.8, True),
+        "loving": (0.6, 0.7, 0.5, False),
+        "desperate": (0.3, 0.85, 0.85, True),
+        "surprised": (0.4, 0.8, 0.7, True),
+        "disgusted": (0.5, 0.7, 0.6, True),
+        "neutral": (0.5, 0.75, 0.5, True),
     }
     
-    base_settings = settings.get(emotion.emotion, VoiceSettings(stability=0.5, similarity_boost=0.75, style=0.5, use_speaker_boost=True))
+    # Get base preset or default
+    preset = emotion_presets.get(emotion.emotion, (0.5, 0.75, 0.5, True))
+    stability, similarity_boost, style, use_speaker_boost = preset
     
-    # Adjust for intensity
+    # Adjust for intensity (create new values, don't modify frozen object)
     if emotion.intensity == "high":
-        base_settings.style = min(1.0, base_settings.style + 0.2)
-        base_settings.stability = max(0.1, base_settings.stability - 0.1)
+        style = min(1.0, style + 0.2)
+        stability = max(0.1, stability - 0.1)
     elif emotion.intensity == "low":
-        base_settings.style = max(0.0, base_settings.style - 0.2)
-        base_settings.stability = min(1.0, base_settings.stability + 0.1)
+        style = max(0.0, style - 0.2)
+        stability = min(1.0, stability + 0.1)
     
-    return base_settings
+    return VoiceSettings(
+        stability=stability,
+        similarity_boost=similarity_boost,
+        style=style,
+        use_speaker_boost=use_speaker_boost
+    )
 
 def get_voice_for_character(char_analysis: Optional[CharacterAnalysis]) -> str:
     """Get appropriate ElevenLabs voice ID for a character."""
