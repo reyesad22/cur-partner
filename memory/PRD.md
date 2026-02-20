@@ -90,3 +90,38 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 - ProjectDetail.jsx - Compact mobile header
 - Reader.jsx - Full-screen experience with own controls
 - index.css - Mobile app styles (safe areas, smooth scroll)
+
+## Update (Feb 20, 2026 - Session 3)
+### AI-Powered Script Analysis & Emotional TTS Added
+
+**New Features:**
+1. **GPT-5.2 Script Analysis** (via Emergent LLM key)
+   - Detects character gender (male/female)
+   - Detects character age group (child/teen/adult/elderly)
+   - Analyzes emotion for every line (happy, sad, angry, screaming, whispering, etc.)
+   - Determines intensity (low/medium/high)
+
+2. **ElevenLabs Emotional TTS**
+   - Generates AI voice for cue lines with matching emotion
+   - Voice settings adjust based on emotion (stability, style, boost)
+   - Voice selection based on character analysis (gender + age)
+   - Supports: angry, sad, happy, screaming, whispering, sarcastic, loving, desperate
+
+3. **Simplified User Flow**
+   - Step 1: Upload PDF → AI analyzes automatically
+   - Step 2: Tap to select your character
+   - Step 3: Generate AI Voices (one button)
+   - Step 4: Start Rehearsal with auto-playing cue audio
+
+4. **Reader Enhancements**
+   - Auto-play cue line audio
+   - Mute/unmute toggle
+   - Audio playback controls
+
+**API Endpoints Added:**
+- POST /api/projects/{id}/generate-audio/{line_id} - Generate single line TTS
+- POST /api/projects/{id}/generate-all-audio - Generate all cue line TTS
+
+**Integrations:**
+- OpenAI GPT-5.2 via Emergent LLM key
+- ElevenLabs TTS API (user's key)
