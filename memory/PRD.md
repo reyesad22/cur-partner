@@ -315,19 +315,16 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 - "Save" button highlighted in green
 - Single take view has prominent "Save to Phone" and "Send to Casting" buttons
 
-**Status:** ✅ IMPLEMENTED (Email requires Resend API key)
+**Status:** ✅ IMPLEMENTED AND TESTED
 
 ## Pending Tasks
-
-### P1 - Configuration Required
-- **Resend API Key**: User needs to provide Resend API key for email functionality
 
 ### P2 - Future
 1. **Stripe Integration**: Payment processing for Pro membership
 2. **Backend Refactoring**: Break down monolithic server.py into modules
 3. **PostgreSQL Migration**: Optional migration to Supabase if requested
+4. **Domain Verification**: Verify custom domain in Resend to send emails to any recipient
 
 ## Known Issues
 - **Membership System**: UI-only, no payment integration (MOCKED)
-- **Email Sending**: Requires Resend API key configuration
-- None critical at this time
+- **Resend Test Mode**: Currently can only send emails to verified email (alerecaresolutions@gmail.com). To send to any recipient, verify a domain at resend.com/domains
