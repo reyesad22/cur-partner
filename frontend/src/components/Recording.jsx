@@ -664,11 +664,30 @@ const Recording = () => {
           />
         </div>
         
-        {selectedTake.notes && (
-          <div className="p-4 bg-black/90">
-            <p className="text-white/70 text-sm">{selectedTake.notes}</p>
+        {/* Bottom Action Bar */}
+        <div className="p-4 bg-black/90 backdrop-blur border-t border-white/10 safe-area-bottom">
+          {selectedTake.notes && (
+            <p className="text-white/70 text-sm mb-4">{selectedTake.notes}</p>
+          )}
+          <div className="flex gap-3 justify-center">
+            <Button 
+              onClick={() => downloadTake(selectedTake)}
+              className="bg-green-600 hover:bg-green-700"
+              data-testid="save-to-phone-btn"
+            >
+              <Smartphone className="w-4 h-4 mr-2" />
+              Save to Phone
+            </Button>
+            <Button 
+              onClick={() => shareTake(selectedTake)}
+              className="bg-gradient-to-r from-purple-500 to-pink-500"
+              data-testid="send-to-casting-btn"
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Send to Casting
+            </Button>
           </div>
-        )}
+        </div>
       </div>
     );
   }
