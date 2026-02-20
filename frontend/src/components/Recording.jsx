@@ -34,7 +34,8 @@ import {
   Save,
   Share2,
   Copy,
-  Mail
+  Mail,
+  Smartphone
 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
