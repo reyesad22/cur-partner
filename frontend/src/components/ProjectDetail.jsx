@@ -113,19 +113,35 @@ const ProjectDetail = () => {
   };
 
   const handleGenerateAllAudio = async () => {
+    // Check if there are cue lines to generate
+    const cueLines = project?.scenes?.reduce((total, scene) => 
+      total + scene.lines.filter(l => !l.is_user_line).length, 0
+    ) || 0;
+    
+    if (cueLines === 0) {
+      toast.error("No cue lines to generate. Upload a script with dialogue first.");
+      return;
+    }
+    
     setGeneratingAudio(true);
     try {
-      toast.info("Generating AI voices for cue lines...");
+      toast.info(`Generating AI voices for ${cueLines} cue lines...`);
       const response = await api.post(`/projects/${id}/generate-all-audio`, {}, {
         timeout: 300000 // 5 minute timeout
       });
-      toast.success(response.data.message);
+      
+      if (response.data.generated_count === 0) {
+        toast.warning("No new audio generated. Lines may already have audio or there are no cue lines.");
+      } else {
+        toast.success(response.data.message);
+      }
       fetchProject(); // Refresh to get audio URLs
     } catch (error) {
       if (error.response?.status === 503) {
         toast.error("ElevenLabs not configured. Add your API key in settings.");
       } else {
-        toast.error("Failed to generate audio");
+        const detail = error.response?.data?.detail || "Failed to generate audio";
+        toast.error(detail);
       }
     } finally {
       setGeneratingAudio(false);
