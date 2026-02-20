@@ -1419,7 +1419,8 @@ async def health_check():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "elevenlabs_configured": eleven_client is not None,
         "ai_configured": EMERGENT_LLM_KEY is not None,
-        "cloud_configured": CLOUDINARY_CONFIGURED
+        "cloud_configured": CLOUDINARY_CONFIGURED,
+        "email_configured": RESEND_CONFIGURED
     }
 
 # Include the router in the main app
