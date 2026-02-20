@@ -6,8 +6,8 @@ const MobileNav = () => {
   const location = useLocation();
   const { user } = useAuth();
 
-  // Hide on landing, auth pages, and reader page (reader has own controls)
-  if (!user || location.pathname.startsWith('/reader')) return null;
+  // Hide on landing, auth pages, reader page, and recording page
+  if (!user || location.pathname.startsWith('/reader') || location.pathname.startsWith('/record')) return null;
 
   const navItems = [
     { path: "/dashboard", icon: Home, label: "Home" },
