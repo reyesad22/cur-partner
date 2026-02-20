@@ -770,14 +770,17 @@ const Recording = () => {
           <div className="space-y-4 mt-4">
             {shareUrl ? (
               <div>
-                <Label className="text-green-400">Link created!</Label>
+                <Label className="text-green-400 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                  {sendingEmail ? "Email sent!" : "Link created!"}
+                </Label>
                 <div className="flex gap-2 mt-2">
                   <Input
                     value={shareUrl}
                     readOnly
                     className="bg-secondary border-border text-sm"
                   />
-                  <Button onClick={copyShareLink} size="icon" variant="outline">
+                  <Button onClick={copyShareLink} size="icon" variant="outline" data-testid="copy-link-btn">
                     <Copy className="w-4 h-4" />
                   </Button>
                 </div>
@@ -788,21 +791,24 @@ const Recording = () => {
             ) : (
               <>
                 <div>
-                  <Label>Recipient Name (optional)</Label>
+                  <Label>Recipient Name <span className="text-red-400">*</span></Label>
                   <Input
                     value={shareName}
                     onChange={(e) => setShareName(e.target.value)}
-                    placeholder="Casting Director"
+                    placeholder="e.g., Sarah Johnson - Casting Director"
                     className="mt-2 bg-secondary border-border"
+                    data-testid="share-name-input"
                   />
                 </div>
                 <div>
-                  <Label>Recipient Email (optional)</Label>
+                  <Label>Recipient Email <span className="text-red-400">*</span></Label>
                   <Input
                     value={shareEmail}
                     onChange={(e) => setShareEmail(e.target.value)}
                     placeholder="casting@studio.com"
+                    type="email"
                     className="mt-2 bg-secondary border-border"
+                    data-testid="share-email-input"
                   />
                 </div>
                 <div>
@@ -813,26 +819,51 @@ const Recording = () => {
                     placeholder="Thank you for considering me for this role..."
                     className="mt-2 bg-secondary border-border"
                     rows={2}
+                    data-testid="share-message-input"
                   />
                 </div>
               </>
             )}
-            <div className="flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => {
-                setShowShareDialog(false);
-                setShareUrl("");
-                setShareEmail("");
-                setShareName("");
-                setShareMessage("");
-              }}>
+            <div className="flex flex-col gap-3">
+              {!shareUrl && (
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={sendDirectSubmission} 
+                    disabled={sendingEmail || !shareName || !shareEmail} 
+                    className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                    data-testid="send-email-btn"
+                  >
+                    {sendingEmail ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Mail className="w-4 h-4 mr-2" />
+                    )}
+                    Send via Email
+                  </Button>
+                  <Button 
+                    onClick={createShareLink} 
+                    disabled={sharing} 
+                    variant="outline"
+                    data-testid="create-link-btn"
+                  >
+                    {sharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4 mr-2" />}
+                    Just Link
+                  </Button>
+                </div>
+              )}
+              <Button 
+                variant="ghost" 
+                onClick={() => {
+                  setShowShareDialog(false);
+                  setShareUrl("");
+                  setShareEmail("");
+                  setShareName("");
+                  setShareMessage("");
+                }}
+                className="w-full"
+              >
                 {shareUrl ? "Done" : "Cancel"}
               </Button>
-              {!shareUrl && (
-                <Button onClick={createShareLink} disabled={sharing} className="btn-primary">
-                  {sharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4 mr-2" />}
-                  Create Link
-                </Button>
-              )}
             </div>
           </div>
         </DialogContent>
