@@ -2,26 +2,91 @@
 <html lang="en">
     <head>
         <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, maximum-scale=1" />
         <meta name="theme-color" content="#0a0a0a" />
         <meta name="description" content="CuePartner - Voice-powered cue reader and teleprompter for actors" />
+        
+        <!-- PWA / App-like settings -->
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="CuePartner" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="format-detection" content="telephone=no" />
+        <meta name="msapplication-tap-highlight" content="no" />
         
         <!-- Favicon -->
         <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/favicon.svg" />
         <link rel="apple-touch-icon" href="%PUBLIC_URL%/favicon.svg" />
+        <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
         
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
         
-        <title>CuePartner | Rehearse Like A Professional</title>
+        <!-- Splash screen color -->
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        
+        <title>CuePartner | Never Miss an Audition</title>
+        
+        <style>
+            /* Prevent pull-to-refresh on mobile */
+            html, body {
+                overscroll-behavior-y: contain;
+            }
+            /* Splash screen */
+            #splash {
+                position: fixed;
+                inset: 0;
+                background: #0a0a0a;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 9999;
+                transition: opacity 0.3s ease;
+            }
+            #splash.hidden {
+                opacity: 0;
+                pointer-events: none;
+            }
+            #splash svg {
+                width: 80px;
+                height: 80px;
+                animation: pulse 1.5s ease-in-out infinite;
+            }
+            @keyframes pulse {
+                0%, 100% { transform: scale(1); opacity: 1; }
+                50% { transform: scale(1.1); opacity: 0.8; }
+            }
+        </style>
     </head>
     <body>
         <noscript>You need to enable JavaScript to run this app.</noscript>
+        
+        <!-- App Splash Screen -->
+        <div id="splash">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+                <defs>
+                    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#c084fc"/>
+                        <stop offset="100%" style="stop-color:#f472b6"/>
+                    </linearGradient>
+                </defs>
+                <rect width="32" height="32" rx="8" fill="url(#grad)"/>
+                <path d="M16 8c-1.66 0-3 1.34-3 3v5c0 1.66 1.34 3 3 3s3-1.34 3-3v-5c0-1.66-1.34-3-3-3z" fill="white"/>
+                <path d="M21 14v2c0 2.76-2.24 5-5 5s-5-2.24-5-5v-2h-2v2c0 3.53 2.61 6.43 6 6.92V24h-3v2h8v-2h-3v-1.08c3.39-.49 6-3.39 6-6.92v-2h-2z" fill="white"/>
+            </svg>
+        </div>
+        
         <div id="root"></div>
+        
+        <script>
+            // Hide splash screen when app loads
+            window.addEventListener('load', function() {
+                setTimeout(function() {
+                    document.getElementById('splash').classList.add('hidden');
+                }, 500);
+            });
+        </script>
     </body>
 </html>
