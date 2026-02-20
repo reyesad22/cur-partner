@@ -805,6 +805,152 @@ async def generate_all_cue_audio(
         "errors": errors if errors else None
     }
 
+# ============== TAKES MANAGEMENT ==============
+
+@api_router.get("/projects/{project_id}/takes", response_model=List[TakeResponse])
+async def get_takes(project_id: str, current_user: dict = Depends(get_current_user)):
+    """Get all takes for a project."""
+    project = await db.projects.find_one({"id": project_id, "user_id": current_user["id"]})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    takes = await db.takes.find(
+        {"project_id": project_id, "user_id": current_user["id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    return [TakeResponse(**t) for t in takes]
+
+@api_router.post("/projects/{project_id}/takes", response_model=TakeResponse)
+async def create_take(
+    project_id: str,
+    take_data: TakeCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Save a new take recording."""
+    project = await db.projects.find_one({"id": project_id, "user_id": current_user["id"]})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Get take count for numbering
+    take_count = await db.takes.count_documents({"project_id": project_id, "user_id": current_user["id"]})
+    
+    take_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Store video as data URL
+    video_url = take_data.video_data if take_data.video_data.startswith('data:') else f"data:video/webm;base64,{take_data.video_data}"
+    
+    take_doc = {
+        "id": take_id,
+        "project_id": project_id,
+        "user_id": current_user["id"],
+        "take_number": take_count + 1,
+        "duration": take_data.duration,
+        "notes": take_data.notes or "",
+        "is_favorite": False,
+        "video_url": video_url,
+        "thumbnail_url": None,
+        "created_at": now
+    }
+    
+    await db.takes.insert_one(take_doc)
+    return TakeResponse(**take_doc)
+
+@api_router.get("/projects/{project_id}/takes/{take_id}", response_model=TakeResponse)
+async def get_take(
+    project_id: str,
+    take_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get a specific take."""
+    take = await db.takes.find_one(
+        {"id": take_id, "project_id": project_id, "user_id": current_user["id"]},
+        {"_id": 0}
+    )
+    if not take:
+        raise HTTPException(status_code=404, detail="Take not found")
+    
+    return TakeResponse(**take)
+
+@api_router.put("/projects/{project_id}/takes/{take_id}", response_model=TakeResponse)
+async def update_take(
+    project_id: str,
+    take_id: str,
+    take_data: TakeUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update take notes or favorite status."""
+    take = await db.takes.find_one({"id": take_id, "project_id": project_id, "user_id": current_user["id"]})
+    if not take:
+        raise HTTPException(status_code=404, detail="Take not found")
+    
+    update_data = {}
+    if take_data.notes is not None:
+        update_data["notes"] = take_data.notes
+    if take_data.is_favorite is not None:
+        update_data["is_favorite"] = take_data.is_favorite
+    
+    if update_data:
+        await db.takes.update_one({"id": take_id}, {"$set": update_data})
+    
+    updated = await db.takes.find_one({"id": take_id}, {"_id": 0})
+    return TakeResponse(**updated)
+
+@api_router.delete("/projects/{project_id}/takes/{take_id}")
+async def delete_take(
+    project_id: str,
+    take_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a take."""
+    result = await db.takes.delete_one(
+        {"id": take_id, "project_id": project_id, "user_id": current_user["id"]}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Take not found")
+    
+    return {"message": "Take deleted"}
+
+@api_router.post("/projects/{project_id}/takes/{take_id}/convert")
+async def convert_take_to_mp4(
+    project_id: str,
+    take_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Convert a WebM take to MP4 format."""
+    take = await db.takes.find_one(
+        {"id": take_id, "project_id": project_id, "user_id": current_user["id"]},
+        {"_id": 0}
+    )
+    if not take:
+        raise HTTPException(status_code=404, detail="Take not found")
+    
+    # Extract base64 video data
+    video_url = take["video_url"]
+    if not video_url.startswith("data:"):
+        raise HTTPException(status_code=400, detail="Invalid video format")
+    
+    try:
+        # Parse data URL
+        header, encoded = video_url.split(",", 1)
+        video_bytes = base64.b64decode(encoded)
+        
+        # For now, just return the original - MP4 conversion would require FFmpeg
+        # In production, you'd use moviepy or ffmpeg here
+        # This is a placeholder that returns the original WebM
+        
+        return {
+            "message": "Video ready for download",
+            "format": "webm",
+            "video_url": video_url,
+            "note": "MP4 conversion available in production with FFmpeg"
+        }
+        
+    except Exception as e:
+        logging.error(f"Video conversion error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process video")
+
 # ============== HEALTH CHECK ==============
 
 @api_router.get("/")
