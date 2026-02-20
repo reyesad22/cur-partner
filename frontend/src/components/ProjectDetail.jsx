@@ -147,6 +147,76 @@ const ProjectDetail = () => {
     return project?.character_analysis?.find(c => c.name === charName);
   };
 
+  const handlePreviewVoice = async (character) => {
+    const analysis = getCharacterAnalysis(character);
+    if (!analysis) {
+      toast.error("Character analysis not available");
+      return;
+    }
+
+    // Stop any playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
+    setPreviewingVoice(character);
+    
+    try {
+      // Find a sample line from this character
+      let sampleLine = null;
+      for (const scene of project.scenes || []) {
+        const line = scene.lines.find(l => l.character === character);
+        if (line) {
+          sampleLine = line;
+          break;
+        }
+      }
+
+      if (!sampleLine) {
+        toast.error("No lines found for this character");
+        setPreviewingVoice(null);
+        return;
+      }
+
+      // Generate audio for this line
+      const response = await api.post(`/projects/${id}/generate-audio/${sampleLine.id}`, {}, {
+        timeout: 60000
+      });
+
+      // Play the audio
+      const audio = new Audio(response.data.audio_url);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setPlayingPreview(null);
+      };
+      
+      audio.play();
+      setPlayingPreview(character);
+      
+      // Update project to get the new audio URL
+      fetchProject();
+      
+    } catch (error) {
+      if (error.response?.status === 503) {
+        toast.error("ElevenLabs not configured");
+      } else {
+        toast.error("Failed to preview voice");
+      }
+    } finally {
+      setPreviewingVoice(null);
+    }
+  };
+
+  const stopPreview = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setPlayingPreview(null);
+  };
+
   const getEmotionColor = (emotion) => {
     const colors = {
       happy: "text-yellow-400",
