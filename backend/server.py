@@ -300,39 +300,94 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
     characters = set()
     current_character = None
     line_number = 0
+    current_dialogue = []
     
+    # Pattern for character names (all caps, may have parenthetical)
+    # Examples: JOHN, SARAH (V.O.), DR. SMITH, MRS. JONES
     character_pattern = re.compile(r'^([A-Z][A-Z\s\-\'\.]+?)(?:\s*\([^)]*\))?\s*$')
+    
+    # Scene/action markers to skip
+    skip_words = {'INT', 'EXT', 'FADE', 'CUT', 'SCENE', 'ACT', 'END', 'CONTINUED', 'CONT', 
+                  'THE END', 'MORE', 'DISSOLVE', 'SMASH', 'INTERCUT', 'FLASHBACK', 
+                  'BACK TO', 'ANGLE', 'CLOSE', 'WIDE', 'POV', 'INSERT'}
     
     text_lines = full_text.split('\n')
     
     for i, line in enumerate(text_lines):
         stripped = line.strip()
         if not stripped:
+            # Empty line - save accumulated dialogue if any
+            if current_character and current_dialogue:
+                dialogue_text = ' '.join(current_dialogue).strip()
+                if dialogue_text:
+                    line_number += 1
+                    lines_data.append({
+                        "id": str(uuid.uuid4()),
+                        "character": current_character,
+                        "text": dialogue_text,
+                        "line_number": line_number,
+                        "is_user_line": False,
+                        "emotion": None,
+                        "audio_url": None
+                    })
+                current_dialogue = []
             continue
         
+        # Check if this is a character name
         char_match = character_pattern.match(stripped)
-        if char_match and len(stripped) < 40 and stripped.isupper():
+        if char_match and len(stripped) < 50:
             potential_char = char_match.group(1).strip()
-            if potential_char not in ['INT', 'EXT', 'FADE', 'CUT', 'SCENE', 'ACT', 'END', 'CONTINUED', 'CONT', 'THE END']:
-                current_character = potential_char.title()
-                characters.add(current_character)
-                continue
+            
+            # Must be mostly uppercase to be a character name
+            if potential_char.isupper() or sum(1 for c in potential_char if c.isupper()) >= len(potential_char.replace(' ','')) * 0.7:
+                # Skip scene directions and technical terms
+                upper_char = potential_char.upper()
+                if not any(skip_word in upper_char for skip_word in skip_words):
+                    # Save any previous dialogue
+                    if current_character and current_dialogue:
+                        dialogue_text = ' '.join(current_dialogue).strip()
+                        if dialogue_text:
+                            line_number += 1
+                            lines_data.append({
+                                "id": str(uuid.uuid4()),
+                                "character": current_character,
+                                "text": dialogue_text,
+                                "line_number": line_number,
+                                "is_user_line": False,
+                                "emotion": None,
+                                "audio_url": None
+                            })
+                        current_dialogue = []
+                    
+                    current_character = potential_char.title()
+                    characters.add(current_character)
+                    continue
         
-        if current_character and stripped:
+        # If we have a current character, accumulate dialogue
+        if current_character:
+            # Skip parenthetical stage directions
             if stripped.startswith('(') and stripped.endswith(')'):
                 continue
-            
+            # Skip page numbers
+            if stripped.isdigit():
+                continue
+            # Add to current dialogue
+            current_dialogue.append(stripped)
+    
+    # Save any remaining dialogue
+    if current_character and current_dialogue:
+        dialogue_text = ' '.join(current_dialogue).strip()
+        if dialogue_text:
             line_number += 1
             lines_data.append({
                 "id": str(uuid.uuid4()),
                 "character": current_character,
-                "text": stripped,
+                "text": dialogue_text,
                 "line_number": line_number,
                 "is_user_line": False,
                 "emotion": None,
                 "audio_url": None
             })
-            current_character = None
     
     scene = Scene(
         id=str(uuid.uuid4()),
