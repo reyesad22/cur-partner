@@ -305,6 +305,39 @@ const Recording = () => {
     }
   };
 
+  const shareTake = async (take) => {
+    setSelectedTake(take);
+    setShowShareDialog(true);
+    setShareUrl("");
+  };
+
+  const createShareLink = async () => {
+    if (!selectedTake) return;
+    
+    setSharing(true);
+    try {
+      const response = await api.post(`/projects/${id}/takes/${selectedTake.id}/share`, {
+        take_id: selectedTake.id,
+        recipient_email: shareEmail || null,
+        recipient_name: shareName || null,
+        message: shareMessage || null,
+        expires_hours: 72
+      });
+      
+      setShareUrl(response.data.share_url);
+      toast.success("Share link created!");
+    } catch (error) {
+      toast.error("Failed to create share link");
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const copyShareLink = () => {
+    navigator.clipboard.writeText(shareUrl);
+    toast.success("Link copied to clipboard!");
+  };
+
   const downloadTake = (take) => {
     // Extract base64 and convert to blob
     const base64 = take.video_url.split(',')[1];
