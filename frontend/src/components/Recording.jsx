@@ -31,9 +31,13 @@ import {
   Trash2,
   List,
   ChevronRight,
-  Save
+  Save,
+  Share2,
+  Copy,
+  Mail
 } from "lucide-react";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
 
 const Recording = () => {
   const { id } = useParams();
