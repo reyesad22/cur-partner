@@ -192,6 +192,50 @@ class TakeUpdate(BaseModel):
     notes: Optional[str] = None
     is_favorite: Optional[bool] = None
 
+# ============== MEMBERSHIP MODELS ==============
+
+class MembershipTier(BaseModel):
+    tier: str  # free, pro
+    cloud_storage_mb: int  # storage limit in MB
+    features: List[str]
+
+class UserMembership(BaseModel):
+    tier: str = "free"
+    cloud_storage_used_mb: float = 0
+    cloud_storage_limit_mb: int = 0  # 0 for free = no cloud storage
+    expires_at: Optional[str] = None
+
+# ============== SHARE/SUBMISSION MODELS ==============
+
+class ShareCreate(BaseModel):
+    take_id: str
+    recipient_email: Optional[str] = None
+    recipient_name: Optional[str] = None
+    message: Optional[str] = None
+    expires_hours: int = 72  # Link expires after 72 hours
+
+class ShareResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    take_id: str
+    project_id: str
+    share_token: str
+    share_url: str
+    recipient_email: Optional[str]
+    recipient_name: Optional[str]
+    message: Optional[str]
+    views: int
+    expires_at: str
+    created_at: str
+
+class CloudUploadSignature(BaseModel):
+    signature: str
+    timestamp: int
+    cloud_name: str
+    api_key: str
+    folder: str
+    resource_type: str
+
 # ============== HELPER FUNCTIONS ==============
 
 def hash_password(password: str) -> str:
