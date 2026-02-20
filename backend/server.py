@@ -245,6 +245,17 @@ class CloudUploadSignature(BaseModel):
     folder: str
     resource_type: str
 
+class DirectSubmissionRequest(BaseModel):
+    recipient_email: EmailStr
+    recipient_name: str
+    message: Optional[str] = ""
+
+class DirectSubmissionResponse(BaseModel):
+    status: str
+    message: str
+    share_url: str
+    email_sent: bool
+
 # ============== HELPER FUNCTIONS ==============
 
 def hash_password(password: str) -> str:
