@@ -21,10 +21,10 @@ const MobileNav = () => {
 
   return (
     <nav 
-      className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-card/95 backdrop-blur-lg border-t border-border safe-area-bottom"
+      className="fixed bottom-0 left-0 right-0 z-50 md:hidden app-bottom-controls"
       data-testid="mobile-bottom-nav"
     >
-      <div className="flex items-center justify-around h-16 px-4">
+      <div className="flex items-center justify-around h-14 px-4">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item);
@@ -33,17 +33,17 @@ const MobileNav = () => {
             <Link
               key={item.label}
               to={item.path}
-              className={`flex flex-col items-center justify-center flex-1 h-full transition-colors relative ${
+              className={`flex flex-col items-center justify-center flex-1 h-full transition-all app-btn relative ${
                 active 
                   ? "text-purple-400" 
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground"
               }`}
               data-testid={`mobile-nav-${item.label.toLowerCase()}`}
             >
-              <Icon className={`w-6 h-6 ${active ? "scale-110" : ""} transition-transform`} />
-              <span className="text-xs mt-1 font-medium">{item.label}</span>
+              <Icon className={`w-6 h-6 transition-transform ${active ? "scale-110" : ""}`} />
+              <span className="text-[10px] mt-1 font-medium">{item.label}</span>
               {active && (
-                <div className="absolute bottom-2 w-1 h-1 rounded-full bg-purple-400" />
+                <div className="absolute -top-0.5 w-8 h-0.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500" />
               )}
             </Link>
           );
