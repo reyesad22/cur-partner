@@ -22,7 +22,8 @@ import {
   Sparkles,
   Volume2,
   User,
-  Zap
+  Zap,
+  Pause
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,6 +39,9 @@ const ProjectDetail = () => {
   const [selectedCharacter, setSelectedCharacter] = useState("");
   const [settingCharacter, setSettingCharacter] = useState(false);
   const [generatingAudio, setGeneratingAudio] = useState(false);
+  const [previewingVoice, setPreviewingVoice] = useState(null);
+  const [playingPreview, setPlayingPreview] = useState(null);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     fetchProject();
