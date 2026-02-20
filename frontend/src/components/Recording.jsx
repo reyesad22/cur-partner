@@ -509,6 +509,7 @@ const Recording = () => {
                 <div
                   key={take.id}
                   className={`feature-card app-card ${compareTakes.find(t => t.id === take.id) ? 'border-purple-500' : ''}`}
+                  data-testid={`take-card-${take.take_number}`}
                 >
                   <div className="flex items-center gap-4">
                     <button
@@ -540,16 +541,39 @@ const Recording = () => {
                     </div>
                     
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => shareTake(take)}>
-                        <Share2 className="w-4 h-4 text-purple-400" />
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => shareTake(take)}
+                        title="Send to Casting"
+                        data-testid={`share-take-${take.take_number}`}
+                      >
+                        <Mail className="w-4 h-4 text-purple-400" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => toggleFavorite(take)}>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => toggleFavorite(take)}
+                        title="Favorite"
+                      >
                         <Star className={`w-4 h-4 ${take.is_favorite ? 'text-yellow-400 fill-yellow-400' : ''}`} />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => downloadTake(take)}>
-                        <Download className="w-4 h-4" />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => downloadTake(take)}
+                        className="text-green-400 border-green-400/30 hover:bg-green-400/10"
+                        data-testid={`download-take-${take.take_number}`}
+                      >
+                        <Smartphone className="w-4 h-4 mr-1" />
+                        Save
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => deleteTake(take.id)}>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => deleteTake(take.id)}
+                        title="Delete"
+                      >
                         <Trash2 className="w-4 h-4 text-red-400" />
                       </Button>
                     </div>
