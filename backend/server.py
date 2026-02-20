@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import Response
 from dotenv import load_dotenv
@@ -9,6 +9,7 @@ import logging
 import re
 import json
 import base64
+import time
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional, Literal
@@ -18,6 +19,9 @@ import jwt
 import bcrypt
 from PyPDF2 import PdfReader
 import io
+import cloudinary
+import cloudinary.utils
+import cloudinary.uploader
 
 # AI Integrations
 from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -35,6 +39,17 @@ db = client[os.environ['DB_NAME']]
 # API Keys
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 ELEVENLABS_API_KEY = os.environ.get('ELEVENLABS_API_KEY')
+
+# Cloudinary configuration
+CLOUDINARY_CONFIGURED = False
+if os.environ.get('CLOUDINARY_CLOUD_NAME') and os.environ.get('CLOUDINARY_CLOUD_NAME') != 'your_cloud_name':
+    cloudinary.config(
+        cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+        api_key=os.environ.get('CLOUDINARY_API_KEY'),
+        api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
+        secure=True
+    )
+    CLOUDINARY_CONFIGURED = True
 
 # Initialize ElevenLabs client
 eleven_client = None
