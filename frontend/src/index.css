@@ -229,3 +229,55 @@ input:focus, textarea:focus {
     display: contents !important;
   }
 }
+
+/* Mobile App Styles */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+/* Hide scrollbar on mobile for app-like feel */
+@media (max-width: 768px) {
+  .app-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .app-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .app-scroll {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Bottom nav padding for content */
+.has-bottom-nav {
+  padding-bottom: 5rem;
+}
+
+@media (min-width: 768px) {
+  .has-bottom-nav {
+    padding-bottom: 0;
+  }
+}
+
+/* App-like header */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  backdrop-filter: blur(12px);
+  background: rgba(10, 10, 10, 0.85);
+}
+
+/* Pull to refresh indicator area */
+@media (max-width: 768px) {
+  html, body {
+    overscroll-behavior-y: contain;
+  }
+}
