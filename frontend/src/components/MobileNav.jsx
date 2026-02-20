@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, FolderOpen, Mic, User } from "lucide-react";
+import { Home, FolderOpen, Settings } from "lucide-react";
 import { useAuth } from "@/App";
 
 const MobileNav = () => {
@@ -12,6 +12,7 @@ const MobileNav = () => {
   const navItems = [
     { path: "/dashboard", icon: Home, label: "Home" },
     { path: "/dashboard", icon: FolderOpen, label: "Projects", match: "/project" },
+    { path: "/settings", icon: Settings, label: "Settings" },
   ];
 
   const isActive = (item) => {
