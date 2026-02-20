@@ -12,6 +12,7 @@ import ProjectDetail from "@/components/ProjectDetail";
 import Reader from "@/components/Reader";
 import Recording from "@/components/Recording";
 import Settings from "@/components/Settings";
+import SharedView from "@/components/SharedView";
 import MobileNav from "@/components/MobileNav";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -179,6 +180,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/shared/:token" element={<SharedView />} />
           </Routes>
           <MobileNav />
           <Toaster position="top-right" />
