@@ -10,6 +10,7 @@ import SignupPage from "@/components/SignupPage";
 import Dashboard from "@/components/Dashboard";
 import ProjectDetail from "@/components/ProjectDetail";
 import Reader from "@/components/Reader";
+import MobileNav from "@/components/MobileNav";
 import { Toaster } from "@/components/ui/sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -161,6 +162,7 @@ function App() {
               }
             />
           </Routes>
+          <MobileNav />
           <Toaster position="top-right" />
         </div>
       </AuthProvider>
