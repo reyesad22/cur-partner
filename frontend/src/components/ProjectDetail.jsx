@@ -363,29 +363,62 @@ const ProjectDetail = () => {
               </div>
               
               {/* Character Cards */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="grid grid-cols-1 gap-3 mb-4">
                 {project.characters?.map((char) => {
                   const analysis = getCharacterAnalysis(char);
                   const isSelected = selectedCharacter === char;
+                  const isPreviewing = previewingVoice === char;
+                  const isPlaying = playingPreview === char;
                   
                   return (
-                    <button
+                    <div
                       key={char}
-                      onClick={() => setSelectedCharacter(char)}
-                      className={`p-3 rounded-xl text-left transition app-btn ${
+                      className={`p-3 rounded-xl transition ${
                         isSelected 
                           ? "bg-purple-500/20 border-2 border-purple-500" 
                           : "bg-secondary border-2 border-transparent"
                       }`}
-                      data-testid={`character-btn-${char}`}
                     >
-                      <p className="font-medium truncate">{char}</p>
-                      {analysis && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {analysis.gender} • {analysis.age_group}
-                        </p>
-                      )}
-                    </button>
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={() => setSelectedCharacter(char)}
+                          className="flex-1 text-left app-btn"
+                          data-testid={`character-btn-${char}`}
+                        >
+                          <p className="font-medium">{char}</p>
+                          {analysis && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {analysis.gender} • {analysis.age_group} • {analysis.voice_type}
+                            </p>
+                          )}
+                        </button>
+                        
+                        {/* Voice Preview Button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isPlaying) {
+                              stopPreview();
+                            } else {
+                              handlePreviewVoice(char);
+                            }
+                          }}
+                          disabled={isPreviewing}
+                          className="ml-2 shrink-0"
+                          data-testid={`preview-voice-${char}`}
+                        >
+                          {isPreviewing ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : isPlaying ? (
+                            <Pause className="w-4 h-4 text-purple-400" />
+                          ) : (
+                            <Volume2 className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
