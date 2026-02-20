@@ -1280,6 +1280,132 @@ async def delete_share(share_id: str, current_user: dict = Depends(get_current_u
     
     return {"message": "Share link deleted"}
 
+@api_router.post("/projects/{project_id}/takes/{take_id}/submit", response_model=DirectSubmissionResponse)
+async def direct_submission(
+    project_id: str,
+    take_id: str,
+    submission: DirectSubmissionRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create a share link and send it via email to a casting director/agent."""
+    take = await db.takes.find_one(
+        {"id": take_id, "project_id": project_id, "user_id": current_user["id"]}
+    )
+    if not take:
+        raise HTTPException(status_code=404, detail="Take not found")
+    
+    project = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
+    
+    # Create share link
+    share_id = str(uuid.uuid4())
+    share_token = str(uuid.uuid4()).replace("-", "")[:16]
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(hours=72)
+    
+    base_url = os.environ.get("FRONTEND_URL", "https://voice-cue-debug.preview.emergentagent.com")
+    share_url = f"{base_url}/shared/{share_token}"
+    
+    share_doc = {
+        "id": share_id,
+        "take_id": take_id,
+        "project_id": project_id,
+        "user_id": current_user["id"],
+        "share_token": share_token,
+        "share_url": share_url,
+        "recipient_email": submission.recipient_email,
+        "recipient_name": submission.recipient_name,
+        "message": submission.message,
+        "project_title": project.get("title", "Audition Tape"),
+        "views": 0,
+        "expires_at": expires_at.isoformat(),
+        "created_at": now.isoformat(),
+        "email_sent": False
+    }
+    
+    await db.shares.insert_one(share_doc)
+    
+    # Send email via Resend
+    email_sent = False
+    if RESEND_CONFIGURED:
+        try:
+            actor_name = user.get("name", "An Actor")
+            project_title = project.get("title", "Self-Tape Audition")
+            
+            html_content = f"""
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); padding: 30px; border-radius: 12px 12px 0 0;">
+                    <h1 style="color: white; margin: 0; font-size: 24px;">CuePartner</h1>
+                    <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Self-Tape Submission</p>
+                </div>
+                
+                <div style="background: #1a1a1a; padding: 30px; border-radius: 0 0 12px 12px; color: #ffffff;">
+                    <p style="font-size: 18px; margin: 0 0 20px 0;">
+                        Hi {submission.recipient_name},
+                    </p>
+                    
+                    <p style="color: #a1a1aa; line-height: 1.6;">
+                        <strong style="color: #ffffff;">{actor_name}</strong> has sent you a self-tape audition 
+                        for <strong style="color: #c084fc;">"{project_title}"</strong>.
+                    </p>
+                    
+                    {f'<div style="background: #262626; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 3px solid #9333ea;"><p style="color: #a1a1aa; margin: 0; font-style: italic;">"{submission.message}"</p></div>' if submission.message else ''}
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{share_url}" style="background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">
+                            Watch Self-Tape
+                        </a>
+                    </div>
+                    
+                    <p style="color: #71717a; font-size: 12px; text-align: center; margin-top: 30px;">
+                        This link will expire in 72 hours.
+                    </p>
+                </div>
+                
+                <p style="color: #52525b; font-size: 11px; text-align: center; margin-top: 20px;">
+                    Sent via CuePartner - Voice-powered rehearsal for actors
+                </p>
+            </div>
+            """
+            
+            params = {
+                "from": SENDER_EMAIL,
+                "to": [submission.recipient_email],
+                "subject": f"Self-Tape Submission from {actor_name} - {project_title}",
+                "html": html_content
+            }
+            
+            # Run sync SDK in thread to keep FastAPI non-blocking
+            await asyncio.to_thread(resend.Emails.send, params)
+            email_sent = True
+            
+            # Update share doc with email sent status
+            await db.shares.update_one(
+                {"id": share_id},
+                {"$set": {"email_sent": True}}
+            )
+            
+            logging.info(f"Email sent successfully to {submission.recipient_email}")
+            
+        except Exception as e:
+            logging.error(f"Failed to send email: {str(e)}")
+            # Continue even if email fails - share link is still created
+    
+    return DirectSubmissionResponse(
+        status="success",
+        message=f"Self-tape submitted to {submission.recipient_name}" + (" via email" if email_sent else " (link created)"),
+        share_url=share_url,
+        email_sent=email_sent
+    )
+
+@api_router.get("/email/status")
+async def get_email_status():
+    """Check if email sending is configured."""
+    return {
+        "configured": RESEND_CONFIGURED,
+        "sender_email": SENDER_EMAIL if RESEND_CONFIGURED else None
+    }
+
 # ============== HEALTH CHECK ==============
 
 @api_router.get("/")
