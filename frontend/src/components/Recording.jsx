@@ -718,6 +718,86 @@ const Recording = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Share Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="w-5 h-5 text-purple-400" />
+              Share Take {selectedTake?.take_number}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            {shareUrl ? (
+              <div>
+                <Label className="text-green-400">Link created!</Label>
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    value={shareUrl}
+                    readOnly
+                    className="bg-secondary border-border text-sm"
+                  />
+                  <Button onClick={copyShareLink} size="icon" variant="outline">
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Link expires in 72 hours
+                </p>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <Label>Recipient Name (optional)</Label>
+                  <Input
+                    value={shareName}
+                    onChange={(e) => setShareName(e.target.value)}
+                    placeholder="Casting Director"
+                    className="mt-2 bg-secondary border-border"
+                  />
+                </div>
+                <div>
+                  <Label>Recipient Email (optional)</Label>
+                  <Input
+                    value={shareEmail}
+                    onChange={(e) => setShareEmail(e.target.value)}
+                    placeholder="casting@studio.com"
+                    className="mt-2 bg-secondary border-border"
+                  />
+                </div>
+                <div>
+                  <Label>Message (optional)</Label>
+                  <Textarea
+                    value={shareMessage}
+                    onChange={(e) => setShareMessage(e.target.value)}
+                    placeholder="Thank you for considering me for this role..."
+                    className="mt-2 bg-secondary border-border"
+                    rows={2}
+                  />
+                </div>
+              </>
+            )}
+            <div className="flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => {
+                setShowShareDialog(false);
+                setShareUrl("");
+                setShareEmail("");
+                setShareName("");
+                setShareMessage("");
+              }}>
+                {shareUrl ? "Done" : "Cancel"}
+              </Button>
+              {!shareUrl && (
+                <Button onClick={createShareLink} disabled={sharing} className="btn-primary">
+                  {sharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4 mr-2" />}
+                  Create Link
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Main Content */}
       <div className="flex-1 flex flex-col md:flex-row">
         {/* Video Preview */}
