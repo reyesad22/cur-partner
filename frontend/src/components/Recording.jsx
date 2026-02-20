@@ -350,6 +350,34 @@ const Recording = () => {
     toast.success("Link copied to clipboard!");
   };
 
+  const sendDirectSubmission = async () => {
+    if (!selectedTake || !shareEmail || !shareName) {
+      toast.error("Please fill in recipient name and email");
+      return;
+    }
+    
+    setSendingEmail(true);
+    try {
+      const response = await api.post(`/projects/${id}/takes/${selectedTake.id}/submit`, {
+        recipient_email: shareEmail,
+        recipient_name: shareName,
+        message: shareMessage || null
+      });
+      
+      setShareUrl(response.data.share_url);
+      
+      if (response.data.email_sent) {
+        toast.success(`Self-tape sent to ${shareName}!`);
+      } else {
+        toast.success("Share link created! Email service not configured.");
+      }
+    } catch (error) {
+      toast.error("Failed to send submission");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   const downloadTake = (take) => {
     // Extract base64 and convert to blob
     const base64 = take.video_url.split(',')[1];
