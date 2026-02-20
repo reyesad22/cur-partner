@@ -499,6 +499,9 @@ const Recording = () => {
                     </div>
                     
                     <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => shareTake(take)}>
+                        <Share2 className="w-4 h-4 text-purple-400" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => toggleFavorite(take)}>
                         <Star className={`w-4 h-4 ${take.is_favorite ? 'text-yellow-400 fill-yellow-400' : ''}`} />
                       </Button>
