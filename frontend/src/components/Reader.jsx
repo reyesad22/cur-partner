@@ -480,6 +480,25 @@ const Reader = () => {
 
       {/* Controls Bar */}
       <div className="border-t border-border bg-card p-3 md:p-4 shrink-0 safe-area-bottom">
+        {/* Status indicator */}
+        <div className="max-w-4xl mx-auto mb-3 text-center">
+          {currentLine?.is_user_line ? (
+            <div className="flex items-center justify-center gap-2">
+              <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-green-500 animate-pulse' : 'bg-purple-500'}`} />
+              <p className="text-sm font-medium text-purple-400">
+                Your turn - {isListening ? "Listening..." : "Tap mic to start"}
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              <div className={`w-3 h-3 rounded-full ${audioRef.current && !audioRef.current.paused ? 'bg-pink-500 animate-pulse' : 'bg-muted-foreground'}`} />
+              <p className="text-sm text-muted-foreground">
+                {currentLine?.character}'s line - {audioRef.current && !audioRef.current.paused ? "Playing..." : "will auto-play"}
+              </p>
+            </div>
+          )}
+        </div>
+        
         <div className="max-w-4xl mx-auto flex items-center justify-center gap-2 md:gap-4">
           <Button
             variant="ghost"
@@ -518,17 +537,17 @@ const Reader = () => {
           
           <Button
             onClick={toggleListening}
-            className={`w-14 h-14 md:w-16 md:h-16 rounded-full ${
+            className={`w-16 h-16 md:w-20 md:h-20 rounded-full transition-all ${
               isListening 
-                ? 'bg-red-500 hover:bg-red-600' 
+                ? 'bg-red-500 hover:bg-red-600 scale-110' 
                 : 'bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
             }`}
             data-testid="mic-btn"
           >
             {isListening ? (
-              <MicOff className="w-6 h-6 md:w-7 md:h-7" />
+              <MicOff className="w-7 h-7 md:w-8 md:h-8" />
             ) : (
-              <Mic className="w-6 h-6 md:w-7 md:h-7" />
+              <Mic className="w-7 h-7 md:w-8 md:h-8" />
             )}
           </Button>
           
@@ -558,18 +577,12 @@ const Reader = () => {
           </Button>
         </div>
         
-        {/* Current Line Info */}
-        <div className="max-w-4xl mx-auto mt-2 md:mt-4 text-center">
-          {currentLine?.is_user_line ? (
-            <p className="text-xs md:text-sm text-purple-400">
-              Your turn - speak your line
-            </p>
-          ) : (
-            <p className="text-xs md:text-sm text-muted-foreground">
-              {currentLine?.character}'s line - tap Next when ready
-            </p>
-          )}
-        </div>
+        {/* Debug transcript when enabled */}
+        {showDebug && transcript && (
+          <div className="max-w-4xl mx-auto mt-3 p-2 rounded bg-secondary/50 text-xs text-muted-foreground text-center">
+            Heard: "{transcript}"
+          </div>
+        )}
       </div>
     </div>
   );
