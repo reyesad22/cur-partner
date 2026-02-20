@@ -105,16 +105,16 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background" data-testid="dashboard-page">
+    <div className="min-h-screen bg-background has-bottom-nav" data-testid="dashboard-page">
       {/* Header */}
-      <header className="border-b border-border">
+      <header className="app-header border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14 md:h-16">
             <Link to="/" className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                 <Mic className="w-5 h-5 text-white" />
               </div>
-              <span className="font-semibold text-lg">CuePartner</span>
+              <span className="font-semibold text-lg hidden sm:block">CuePartner</span>
             </Link>
 
             <div className="flex items-center gap-4">
@@ -125,6 +125,7 @@ const Dashboard = () => {
                 variant="ghost"
                 size="icon"
                 onClick={handleLogout}
+                className="hidden md:flex"
                 data-testid="logout-btn"
               >
                 <LogOut className="w-5 h-5" />
@@ -135,12 +136,12 @@ const Dashboard = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 app-scroll">
         {/* Page Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6 md:mb-8">
           <div>
-            <h1 className="text-2xl font-bold">My Projects</h1>
-            <p className="text-muted-foreground">Manage your scripts and rehearsals</p>
+            <h1 className="text-xl md:text-2xl font-bold">My Projects</h1>
+            <p className="text-sm text-muted-foreground hidden sm:block">Manage your scripts and rehearsals</p>
           </div>
 
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
