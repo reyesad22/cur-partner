@@ -114,30 +114,28 @@ const ProjectDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background" data-testid="project-detail-page">
+    <div className="min-h-screen bg-background has-bottom-nav" data-testid="project-detail-page">
       {/* Header */}
-      <header className="border-b border-border">
+      <header className="app-header border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between h-14 md:h-16">
+            <div className="flex items-center gap-3 md:gap-4 min-w-0">
               <Link
                 to="/dashboard"
-                className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground shrink-0"
               >
-                <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Dashboard</span>
+                <ArrowLeft className="w-5 h-5" />
               </Link>
-              <div className="h-6 w-px bg-border" />
-              <h1 className="font-semibold truncate max-w-[200px] sm:max-w-none">
+              <h1 className="font-semibold truncate text-sm md:text-base">
                 {project?.title}
               </h1>
             </div>
 
             {project?.scenes?.length > 0 && project?.user_character && (
               <Link to={`/reader/${id}`}>
-                <Button className="btn-primary" data-testid="start-reader-btn">
-                  <Play className="w-4 h-4 mr-2" />
-                  Start Reader
+                <Button className="btn-primary text-sm px-3 py-2 md:px-4 md:py-2" data-testid="start-reader-btn">
+                  <Play className="w-4 h-4 md:mr-2" />
+                  <span className="hidden md:inline">Start Reader</span>
                 </Button>
               </Link>
             )}
@@ -146,7 +144,7 @@ const ProjectDetail = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 app-scroll">
         {/* Script Upload Section */}
         {(!project?.scenes || project.scenes.length === 0) ? (
           <div className="text-center py-16">
