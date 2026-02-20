@@ -1426,6 +1426,11 @@ async def health_check():
 # Include the router in the main app
 app.include_router(api_router)
 
+# Root-level health check for deployment (without /api prefix)
+@app.get("/health")
+async def root_health_check():
+    return {"status": "healthy"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
