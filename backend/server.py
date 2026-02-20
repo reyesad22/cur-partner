@@ -58,6 +58,13 @@ eleven_client = None
 if ELEVENLABS_API_KEY and ELEVENLABS_API_KEY != 'your_elevenlabs_api_key_here':
     eleven_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
+# Resend Email Configuration
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
+RESEND_CONFIGURED = bool(RESEND_API_KEY and RESEND_API_KEY != 'your_resend_api_key_here')
+if RESEND_CONFIGURED:
+    resend.api_key = RESEND_API_KEY
+
 # JWT Configuration
 JWT_SECRET = os.environ.get('JWT_SECRET', 'cuepartner-secret-key-change-in-production')
 JWT_ALGORITHM = "HS256"
