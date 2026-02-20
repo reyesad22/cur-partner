@@ -84,6 +84,26 @@ const Reader = () => {
     }
   }, [currentLineIndex, autoScroll]);
 
+  // Auto-play audio for cue lines
+  useEffect(() => {
+    if (autoPlayAudio && !isMuted && lines[currentLineIndex]) {
+      const currentLine = lines[currentLineIndex];
+      // If it's a cue line (not user's line) and has audio, play it
+      if (!currentLine.is_user_line && currentLine.audio_url) {
+        playLineAudio(currentLine.audio_url);
+      }
+    }
+  }, [currentLineIndex, autoPlayAudio, isMuted]);
+
+  const playLineAudio = (audioUrl) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+    audio.play().catch(e => console.log("Audio play failed:", e));
+  };
+
   const fetchReaderData = async () => {
     try {
       const response = await api.get(`/projects/${id}/reader-data`);
