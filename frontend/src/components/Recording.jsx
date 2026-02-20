@@ -98,11 +98,21 @@ const Recording = () => {
   useEffect(() => {
     fetchReaderData();
     fetchTakes();
+    checkEmailStatus();
     return () => {
       stopMediaStream();
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [id]);
+
+  const checkEmailStatus = async () => {
+    try {
+      const response = await api.get('/email/status');
+      setEmailConfigured(response.data.configured);
+    } catch (error) {
+      console.log("Email status check failed");
+    }
+  };
 
   useEffect(() => {
     if (project && !showTakes && !showCompare && !selectedTake) {
