@@ -1197,8 +1197,8 @@ async def create_share_link(
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(hours=share_data.expires_hours)
     
-    # Get base URL for share link
-    base_url = os.environ.get("FRONTEND_URL", "https://voice-cue-debug.preview.emergentagent.com")
+    # Get base URL for share link - use APP_URL for production deployment
+    base_url = os.environ.get("FRONTEND_URL") or os.environ.get("APP_URL", "")
     
     share_doc = {
         "id": share_id,
