@@ -2,9 +2,15 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "@/App";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Video,
   VideoOff,
@@ -19,10 +25,13 @@ import {
   Settings,
   Loader2,
   X,
-  Volume2,
-  VolumeX,
   Camera,
-  Circle
+  Circle,
+  Star,
+  Trash2,
+  List,
+  ChevronRight,
+  Save
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -53,6 +62,16 @@ const Recording = () => {
   const [autoPlayCues, setAutoPlayCues] = useState(true);
   const [showSlate, setShowSlate] = useState(true);
   
+  // Takes management
+  const [takes, setTakes] = useState([]);
+  const [showTakes, setShowTakes] = useState(false);
+  const [savingTake, setSavingTake] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [takeNotes, setTakeNotes] = useState("");
+  const [selectedTake, setSelectedTake] = useState(null);
+  const [compareTakes, setCompareTakes] = useState([]);
+  const [showCompare, setShowCompare] = useState(false);
+  
   // Refs
   const videoRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -64,6 +83,7 @@ const Recording = () => {
 
   useEffect(() => {
     fetchReaderData();
+    fetchTakes();
     return () => {
       stopMediaStream();
       if (timerRef.current) clearInterval(timerRef.current);
@@ -71,10 +91,10 @@ const Recording = () => {
   }, [id]);
 
   useEffect(() => {
-    if (project) {
+    if (project && !showTakes && !showCompare && !selectedTake) {
       initCamera();
     }
-  }, [project, cameraEnabled, micEnabled]);
+  }, [project, cameraEnabled, micEnabled, showTakes, showCompare, selectedTake]);
 
   const fetchReaderData = async () => {
     try {
@@ -90,6 +110,15 @@ const Recording = () => {
       navigate("/dashboard");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTakes = async () => {
+    try {
+      const response = await api.get(`/projects/${id}/takes`);
+      setTakes(response.data);
+    } catch (error) {
+      console.error("Failed to fetch takes:", error);
     }
   };
 
@@ -168,12 +197,10 @@ const Recording = () => {
     setIsRecording(true);
     setRecordingTime(0);
     
-    // Start timer
     timerRef.current = setInterval(() => {
       setRecordingTime(prev => prev + 1);
     }, 1000);
 
-    // Play first cue if it's not user's line
     if (autoPlayCues && lines[0] && !lines[0].is_user_line && lines[0].audio_url) {
       setTimeout(() => playLineAudio(lines[0].audio_url), 500);
     }
@@ -208,6 +235,84 @@ const Recording = () => {
     setRecordedUrl(null);
     setCurrentLineIndex(0);
     setRecordingTime(0);
+    setTakeNotes("");
+    initCamera();
+  };
+
+  const saveTake = async () => {
+    if (!recordedBlob) return;
+    
+    setSavingTake(true);
+    try {
+      // Convert blob to base64
+      const reader = new FileReader();
+      reader.readAsDataURL(recordedBlob);
+      
+      reader.onloadend = async () => {
+        const base64data = reader.result;
+        
+        const response = await api.post(`/projects/${id}/takes`, {
+          project_id: id,
+          video_data: base64data,
+          duration: recordingTime,
+          notes: takeNotes
+        });
+        
+        setTakes([response.data, ...takes]);
+        toast.success(`Take ${response.data.take_number} saved!`);
+        setShowSaveDialog(false);
+        resetRecording();
+        setSavingTake(false);
+      };
+    } catch (error) {
+      toast.error("Failed to save take");
+      setSavingTake(false);
+    }
+  };
+
+  const toggleFavorite = async (take) => {
+    try {
+      const response = await api.put(`/projects/${id}/takes/${take.id}`, {
+        is_favorite: !take.is_favorite
+      });
+      setTakes(takes.map(t => t.id === take.id ? response.data : t));
+    } catch (error) {
+      toast.error("Failed to update take");
+    }
+  };
+
+  const deleteTake = async (takeId) => {
+    if (!window.confirm("Delete this take?")) return;
+    
+    try {
+      await api.delete(`/projects/${id}/takes/${takeId}`);
+      setTakes(takes.filter(t => t.id !== takeId));
+      toast.success("Take deleted");
+    } catch (error) {
+      toast.error("Failed to delete take");
+    }
+  };
+
+  const downloadTake = (take) => {
+    // Extract base64 and convert to blob
+    const base64 = take.video_url.split(',')[1];
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'video/webm' });
+    
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${project?.project_title || 'self-tape'}_take${take.take_number}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Download started!");
   };
 
   const downloadRecording = () => {
@@ -238,13 +343,11 @@ const Recording = () => {
       const nextIndex = currentLineIndex + 1;
       setCurrentLineIndex(nextIndex);
       
-      // Auto-play cue audio
       const nextLine = lines[nextIndex];
       if (autoPlayCues && nextLine && !nextLine.is_user_line && nextLine.audio_url) {
         playLineAudio(nextLine.audio_url);
       }
       
-      // Scroll to line
       if (lineRefs.current[nextIndex]) {
         lineRefs.current[nextIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
@@ -263,10 +366,196 @@ const Recording = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const toggleCompare = (take) => {
+    if (compareTakes.find(t => t.id === take.id)) {
+      setCompareTakes(compareTakes.filter(t => t.id !== take.id));
+    } else if (compareTakes.length < 2) {
+      setCompareTakes([...compareTakes, take]);
+    } else {
+      toast.error("Can only compare 2 takes at a time");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
+      </div>
+    );
+  }
+
+  // Takes List View
+  if (showTakes) {
+    return (
+      <div className="min-h-screen bg-background" data-testid="takes-list-page">
+        <header className="app-header border-b border-border">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex items-center justify-between h-14">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setShowTakes(false)} className="text-muted-foreground">
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <h1 className="font-semibold">My Takes ({takes.length})</h1>
+              </div>
+              {compareTakes.length === 2 && (
+                <Button size="sm" onClick={() => setShowCompare(true)} className="btn-primary">
+                  Compare
+                </Button>
+              )}
+            </div>
+          </div>
+        </header>
+        
+        <main className="max-w-4xl mx-auto px-4 py-6">
+          {takes.length === 0 ? (
+            <div className="text-center py-12">
+              <Video className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No takes yet. Record your first one!</p>
+              <Button onClick={() => setShowTakes(false)} className="mt-4 btn-primary">
+                Start Recording
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Select 2 takes to compare side-by-side</p>
+              
+              {takes.map((take) => (
+                <div
+                  key={take.id}
+                  className={`feature-card app-card ${compareTakes.find(t => t.id === take.id) ? 'border-purple-500' : ''}`}
+                >
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => toggleCompare(take)}
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        compareTakes.find(t => t.id === take.id) 
+                          ? 'bg-purple-500 border-purple-500' 
+                          : 'border-muted-foreground'
+                      }`}
+                    >
+                      {compareTakes.find(t => t.id === take.id) && (
+                        <span className="text-white text-xs">
+                          {compareTakes.findIndex(t => t.id === take.id) + 1}
+                        </span>
+                      )}
+                    </button>
+                    
+                    <div className="flex-1 min-w-0" onClick={() => setSelectedTake(take)}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">Take {take.take_number}</span>
+                        {take.is_favorite && <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {formatTime(take.duration)} • {new Date(take.created_at).toLocaleDateString()}
+                      </p>
+                      {take.notes && (
+                        <p className="text-sm text-muted-foreground truncate mt-1">{take.notes}</p>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => toggleFavorite(take)}>
+                        <Star className={`w-4 h-4 ${take.is_favorite ? 'text-yellow-400 fill-yellow-400' : ''}`} />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => downloadTake(take)}>
+                        <Download className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => deleteTake(take.id)}>
+                        <Trash2 className="w-4 h-4 text-red-400" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
+    );
+  }
+
+  // Compare View
+  if (showCompare && compareTakes.length === 2) {
+    return (
+      <div className="min-h-screen bg-black" data-testid="compare-takes-page">
+        <header className="absolute top-0 left-0 right-0 z-20 p-4">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => {
+                setShowCompare(false);
+                setCompareTakes([]);
+              }}
+              className="w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center"
+            >
+              <ArrowLeft className="w-5 h-5 text-white" />
+            </button>
+            <span className="text-white font-semibold">Compare Takes</span>
+            <div className="w-10" />
+          </div>
+        </header>
+        
+        <div className="flex flex-col md:flex-row h-screen pt-16">
+          {compareTakes.map((take, idx) => (
+            <div key={take.id} className="flex-1 relative">
+              <video
+                src={take.video_url}
+                controls
+                className="w-full h-full object-contain"
+              />
+              <div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur">
+                <span className="text-white text-sm">Take {take.take_number}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Single Take View
+  if (selectedTake) {
+    return (
+      <div className="min-h-screen bg-black flex flex-col" data-testid="take-view-page">
+        <header className="absolute top-0 left-0 right-0 z-20 p-4">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setSelectedTake(null)}
+              className="w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center"
+            >
+              <ArrowLeft className="w-5 h-5 text-white" />
+            </button>
+            <span className="text-white font-semibold">Take {selectedTake.take_number}</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => toggleFavorite(selectedTake)}
+                className="w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center"
+              >
+                <Star className={`w-5 h-5 ${selectedTake.is_favorite ? 'text-yellow-400 fill-yellow-400' : 'text-white'}`} />
+              </button>
+              <button
+                onClick={() => downloadTake(selectedTake)}
+                className="w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center"
+              >
+                <Download className="w-5 h-5 text-white" />
+              </button>
+            </div>
+          </div>
+        </header>
+        
+        <div className="flex-1 flex items-center justify-center">
+          <video
+            src={selectedTake.video_url}
+            controls
+            autoPlay
+            className="w-full h-full object-contain"
+          />
+        </div>
+        
+        {selectedTake.notes && (
+          <div className="p-4 bg-black/90">
+            <p className="text-white/70 text-sm">{selectedTake.notes}</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -291,6 +580,16 @@ const Recording = () => {
                 <Circle className="w-3 h-3 fill-white text-white animate-pulse" />
                 <span className="text-white text-sm font-medium">{formatTime(recordingTime)}</span>
               </div>
+            )}
+            
+            {takes.length > 0 && !isRecording && !recordedUrl && (
+              <button
+                onClick={() => setShowTakes(true)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur"
+              >
+                <List className="w-4 h-4 text-white" />
+                <span className="text-white text-sm">{takes.length} takes</span>
+              </button>
             )}
             
             <button
@@ -341,6 +640,36 @@ const Recording = () => {
         </div>
       )}
 
+      {/* Save Dialog */}
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>Save Take</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label>Notes (optional)</Label>
+              <Textarea
+                value={takeNotes}
+                onChange={(e) => setTakeNotes(e.target.value)}
+                placeholder="Add notes about this take..."
+                className="mt-2 bg-secondary border-border"
+                rows={3}
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setShowSaveDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={saveTake} disabled={savingTake} className="btn-primary">
+                {savingTake ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Save Take
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Main Content */}
       <div className="flex-1 flex flex-col md:flex-row">
         {/* Video Preview */}
@@ -358,7 +687,7 @@ const Recording = () => {
               autoPlay
               muted
               playsInline
-              className="w-full h-full object-cover mirror"
+              className="w-full h-full object-cover"
               style={{ transform: 'scaleX(-1)' }}
               data-testid="camera-preview"
             />
@@ -377,13 +706,13 @@ const Recording = () => {
                 {project?.user_character && `Playing: ${project.user_character}`}
               </p>
               <p className="text-white/50 text-xs mt-1">
-                {new Date().toLocaleDateString()}
+                {new Date().toLocaleDateString()} • Take {takes.length + 1}
               </p>
             </div>
           )}
         </div>
 
-        {/* Script Sidebar (visible on larger screens or when recording) */}
+        {/* Script Sidebar */}
         {(isRecording || recordedUrl) && (
           <div className="md:w-80 h-48 md:h-auto bg-background/95 backdrop-blur border-t md:border-t-0 md:border-l border-border overflow-hidden flex flex-col">
             <div className="p-3 border-b border-border">
@@ -399,7 +728,8 @@ const Recording = () => {
                   <div
                     key={line.id}
                     ref={el => lineRefs.current[idx] = el}
-                    className={`p-2 rounded-lg text-sm transition-all ${
+                    onClick={() => setCurrentLineIndex(idx)}
+                    className={`p-2 rounded-lg text-sm transition-all cursor-pointer ${
                       isActive
                         ? line.is_user_line
                           ? 'bg-purple-500/20 border border-purple-500'
@@ -437,8 +767,17 @@ const Recording = () => {
               </Button>
               
               <Button
-                onClick={downloadRecording}
+                onClick={() => setShowSaveDialog(true)}
                 className="bg-gradient-to-r from-purple-500 to-pink-500"
+              >
+                <Save className="w-5 h-5 mr-2" />
+                Save Take
+              </Button>
+              
+              <Button
+                variant="ghost"
+                onClick={downloadRecording}
+                className="text-white hover:text-white hover:bg-white/10"
               >
                 <Download className="w-5 h-5 mr-2" />
                 Download
@@ -481,10 +820,10 @@ const Recording = () => {
                 disabled={currentLineIndex === lines.length - 1}
                 className="w-12 h-12 text-white hover:text-white hover:bg-white/10"
               >
-                <Play className="w-5 h-5" />
+                <ChevronRight className="w-5 h-5" />
               </Button>
               
-              <div className="w-12" /> {/* Spacer */}
+              <div className="w-12" />
             </div>
           ) : (
             // Pre-recording controls
