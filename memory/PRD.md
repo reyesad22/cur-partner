@@ -74,3 +74,19 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 1. Add TTS for partner lines (OpenAI TTS or Web Speech Synthesis)
 2. Implement recording feature with camera/audio
 3. Add voice actor marketplace with actual audio samples
+
+## Update (Feb 20, 2026 - Session 2)
+### Mobile App-Like Navigation Added
+- Added bottom navigation bar for mobile (visible only on authenticated pages)
+- Bottom nav hidden on Reader page (Reader has its own control bar)
+- App-like sticky headers with blur effect
+- Safe area support for iOS devices
+- Smooth scrolling optimized for mobile
+- Responsive typography and spacing
+
+### Components Updated
+- MobileNav.jsx - New bottom navigation component
+- Dashboard.jsx - App-like header, mobile-optimized layout
+- ProjectDetail.jsx - Compact mobile header
+- Reader.jsx - Full-screen experience with own controls
+- index.css - Mobile app styles (safe areas, smooth scroll)
