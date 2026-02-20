@@ -162,3 +162,44 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 **Components:**
 - Recording.jsx - Full recording feature
 - Updated ProjectDetail.jsx - Voice preview + record button
+
+## Update (Feb 20, 2026 - Session 5)
+### Take Management & Video Features
+
+**New Features:**
+
+1. **Take Management**
+   - Save multiple recording takes
+   - Add notes to each take
+   - Mark favorites (star icon)
+   - View all takes in a list
+   - Delete unwanted takes
+   - Download individual takes
+
+2. **Take Comparison**
+   - Select 2 takes to compare
+   - Side-by-side video playback
+   - Easy selection with numbered circles
+   - Compare button appears when 2 selected
+
+3. **Enhanced Recording Flow**
+   - Shows take count in header
+   - "X takes" button to view all takes
+   - Save dialog with notes option
+   - Take number shown on slate
+
+4. **Video Storage**
+   - Takes stored in MongoDB as base64
+   - WebM format (browser native)
+   - MP4 conversion endpoint (placeholder for FFmpeg)
+
+**API Endpoints:**
+- GET /api/projects/{id}/takes - List all takes
+- POST /api/projects/{id}/takes - Save new take
+- GET /api/projects/{id}/takes/{take_id} - Get take
+- PUT /api/projects/{id}/takes/{take_id} - Update notes/favorite
+- DELETE /api/projects/{id}/takes/{take_id} - Delete take
+- POST /api/projects/{id}/takes/{take_id}/convert - Convert to MP4 (future)
+
+**Models:**
+- TakeCreate, TakeResponse, TakeUpdate
