@@ -17,7 +17,8 @@ import {
   ChevronDown,
   Volume2,
   Loader2,
-  X
+  X,
+  VolumeX
 } from "lucide-react";
 import { toast } from "sonner";
 import Fuse from "fuse.js";
@@ -43,12 +44,15 @@ const Reader = () => {
   const [autoScroll, setAutoScroll] = useState(true);
   const [showDebug, setShowDebug] = useState(false);
   const [sensitivity, setSensitivity] = useState(0.4);
+  const [autoPlayAudio, setAutoPlayAudio] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   
   // Refs
   const recognitionRef = useRef(null);
   const lineRefs = useRef([]);
   const fuseRef = useRef(null);
   const containerRef = useRef(null);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     fetchReaderData();
