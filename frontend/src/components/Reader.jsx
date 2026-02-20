@@ -262,30 +262,31 @@ const Reader = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col" data-testid="reader-page">
       {/* Header */}
-      <header className="border-b border-border shrink-0">
+      <header className="app-header border-b border-border shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between h-12 md:h-14">
+            <div className="flex items-center gap-3 md:gap-4">
               <Link
                 to={`/project/${id}`}
                 className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="w-5 h-5" />
               </Link>
-              <h1 className="font-semibold truncate">{project?.project_title}</h1>
+              <h1 className="font-semibold truncate text-sm md:text-base max-w-[150px] md:max-w-none">{project?.project_title}</h1>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                Line {currentLineIndex + 1} of {lines.length}
+              <span className="text-xs md:text-sm text-muted-foreground">
+                {currentLineIndex + 1}/{lines.length}
               </span>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowSettings(!showSettings)}
+                className="w-8 h-8 md:w-10 md:h-10"
                 data-testid="settings-btn"
               >
-                <Settings className="w-5 h-5" />
+                <Settings className="w-4 h-4 md:w-5 md:h-5" />
               </Button>
             </div>
           </div>
@@ -430,16 +431,16 @@ const Reader = () => {
       </div>
 
       {/* Controls Bar */}
-      <div className="border-t border-border bg-card p-4 shrink-0">
-        <div className="max-w-4xl mx-auto flex items-center justify-center gap-4">
+      <div className="border-t border-border bg-card p-3 md:p-4 shrink-0 safe-area-bottom">
+        <div className="max-w-4xl mx-auto flex items-center justify-center gap-2 md:gap-4">
           <Button
             variant="ghost"
             size="icon"
             onClick={handleReset}
-            className="w-12 h-12"
+            className="w-10 h-10 md:w-12 md:h-12"
             data-testid="reset-btn"
           >
-            <RotateCcw className="w-5 h-5" />
+            <RotateCcw className="w-4 h-4 md:w-5 md:h-5" />
           </Button>
           
           <Button
@@ -447,15 +448,15 @@ const Reader = () => {
             size="icon"
             onClick={handlePrevLine}
             disabled={currentLineIndex === 0}
-            className="w-12 h-12"
+            className="w-10 h-10 md:w-12 md:h-12"
             data-testid="prev-line-btn"
           >
-            <ChevronUp className="w-6 h-6" />
+            <ChevronUp className="w-5 h-5 md:w-6 md:h-6" />
           </Button>
           
           <Button
             onClick={toggleListening}
-            className={`w-16 h-16 rounded-full ${
+            className={`w-14 h-14 md:w-16 md:h-16 rounded-full ${
               isListening 
                 ? 'bg-red-500 hover:bg-red-600' 
                 : 'bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
@@ -463,9 +464,9 @@ const Reader = () => {
             data-testid="mic-btn"
           >
             {isListening ? (
-              <MicOff className="w-7 h-7" />
+              <MicOff className="w-6 h-6 md:w-7 md:h-7" />
             ) : (
-              <Mic className="w-7 h-7" />
+              <Mic className="w-6 h-6 md:w-7 md:h-7" />
             )}
           </Button>
           
@@ -474,35 +475,35 @@ const Reader = () => {
             size="icon"
             onClick={handleNextLine}
             disabled={currentLineIndex === lines.length - 1}
-            className="w-12 h-12"
+            className="w-10 h-10 md:w-12 md:h-12"
             data-testid="next-line-btn"
           >
-            <ChevronDown className="w-6 h-6" />
+            <ChevronDown className="w-5 h-5 md:w-6 md:h-6" />
           </Button>
           
           <Button
             variant="ghost"
             size="icon"
             onClick={togglePlayPause}
-            className="w-12 h-12"
+            className="w-10 h-10 md:w-12 md:h-12"
             data-testid="play-pause-btn"
           >
             {isPlaying ? (
-              <Pause className="w-5 h-5" />
+              <Pause className="w-4 h-4 md:w-5 md:h-5" />
             ) : (
-              <Play className="w-5 h-5" />
+              <Play className="w-4 h-4 md:w-5 md:h-5" />
             )}
           </Button>
         </div>
         
         {/* Current Line Info */}
-        <div className="max-w-4xl mx-auto mt-4 text-center">
+        <div className="max-w-4xl mx-auto mt-2 md:mt-4 text-center">
           {currentLine?.is_user_line ? (
-            <p className="text-sm text-purple-400">
+            <p className="text-xs md:text-sm text-purple-400">
               Your turn - speak your line
             </p>
           ) : (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground">
               {currentLine?.character}'s line - tap Next when ready
             </p>
           )}
