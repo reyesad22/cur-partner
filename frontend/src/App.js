@@ -10,6 +10,7 @@ import SignupPage from "@/components/SignupPage";
 import Dashboard from "@/components/Dashboard";
 import ProjectDetail from "@/components/ProjectDetail";
 import Reader from "@/components/Reader";
+import Recording from "@/components/Recording";
 import Settings from "@/components/Settings";
 import MobileNav from "@/components/MobileNav";
 import { Toaster } from "@/components/ui/sonner";
@@ -167,6 +168,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/record/:id"
+              element={
+                <ProtectedRoute>
+                  <Recording />
                 </ProtectedRoute>
               }
             />
