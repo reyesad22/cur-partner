@@ -84,7 +84,7 @@ const Reader = () => {
     }
   }, [currentLineIndex, autoScroll]);
 
-  // Auto-play audio for cue lines
+  // Auto-play audio for cue lines AND auto-advance after audio ends
   useEffect(() => {
     if (autoPlayAudio && !isMuted && lines[currentLineIndex]) {
       const currentLine = lines[currentLineIndex];
@@ -101,6 +101,16 @@ const Reader = () => {
     }
     const audio = new Audio(audioUrl);
     audioRef.current = audio;
+    
+    // Auto-advance to next line after audio ends
+    audio.onended = () => {
+      // Move to next line automatically after cue audio finishes
+      if (currentLineIndex < lines.length - 1) {
+        setCurrentLineIndex(prev => prev + 1);
+        setTranscript("");
+      }
+    };
+    
     audio.play().catch(e => console.log("Audio play failed:", e));
   };
 
