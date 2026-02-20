@@ -280,11 +280,47 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 
 **Status:** ✅ FIXED AND VERIFIED
 
+## Update (Feb 21, 2026 - Session 7 Continued)
+### Video Download & Direct Submission Features
+
+**New Features Implemented:**
+
+1. **Save to Phone / Video Download**
+   - Prominent "Save" button with phone icon on takes list
+   - "Save to Phone" button on single take view
+   - Downloads video as WebM file to device
+   - Works with existing take storage
+
+2. **Direct Submission to Casting**
+   - "Send via Email" button in share dialog
+   - Recipient name and email fields (required for email)
+   - Optional message field
+   - Creates share link and sends via Resend email
+   - Beautiful HTML email template with CuePartner branding
+   - Fallback to "Just Link" if email not configured
+
+**API Endpoints Added:**
+- `POST /api/projects/{project_id}/takes/{take_id}/submit` - Direct submission with email
+- `GET /api/email/status` - Check if email is configured
+
+**Backend Integration:**
+- Resend email service integration
+- Async non-blocking email sending
+- HTML email templates with inline CSS
+- Share link tracking (email_sent status)
+
+**UI Updates:**
+- Share dialog redesigned with two options: "Send via Email" (primary) and "Just Link" (secondary)
+- Takes list now shows Mail icon instead of Share2 for clarity
+- "Save" button highlighted in green
+- Single take view has prominent "Save to Phone" and "Send to Casting" buttons
+
+**Status:** ✅ IMPLEMENTED (Email requires Resend API key)
+
 ## Pending Tasks
 
-### P1 - Next Priority
-1. **Video Download**: Add "Save to Phone" button for recorded takes
-2. **Direct Submission**: Allow users to send video takes to casting directors/agents via email
+### P1 - Configuration Required
+- **Resend API Key**: User needs to provide Resend API key for email functionality
 
 ### P2 - Future
 1. **Stripe Integration**: Payment processing for Pro membership
@@ -293,4 +329,5 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 
 ## Known Issues
 - **Membership System**: UI-only, no payment integration (MOCKED)
+- **Email Sending**: Requires Resend API key configuration
 - None critical at this time
