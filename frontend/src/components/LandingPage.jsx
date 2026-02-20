@@ -170,6 +170,10 @@ const LandingPage = () => {
             <span className="text-pink-400">Creator Paid</span>
           </div>
           
+          <p className="text-sm sm:text-base font-medium tracking-widest text-purple-300 uppercase mb-4">
+            Never Miss an Audition
+          </p>
+          
           <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold mb-6 leading-tight" data-testid="hero-title">
             Rehearse Like <br />
             <span className="gradient-text">A Professional</span>
