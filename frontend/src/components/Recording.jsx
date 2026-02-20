@@ -76,6 +76,14 @@ const Recording = () => {
   const [compareTakes, setCompareTakes] = useState([]);
   const [showCompare, setShowCompare] = useState(false);
   
+  // Sharing
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [shareEmail, setShareEmail] = useState("");
+  const [shareName, setShareName] = useState("");
+  const [shareMessage, setShareMessage] = useState("");
+  const [sharing, setSharing] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  
   // Refs
   const videoRef = useRef(null);
   const mediaRecorderRef = useRef(null);
