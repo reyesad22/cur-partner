@@ -1010,6 +1010,246 @@ async def convert_take_to_mp4(
         logging.error(f"Video conversion error: {e}")
         raise HTTPException(status_code=500, detail="Failed to process video")
 
+# ============== MEMBERSHIP ==============
+
+MEMBERSHIP_TIERS = {
+    "free": MembershipTier(
+        tier="free",
+        cloud_storage_mb=0,
+        features=["download_to_device", "5_takes_per_project", "basic_ai_analysis"]
+    ),
+    "pro": MembershipTier(
+        tier="pro",
+        cloud_storage_mb=5000,  # 5GB
+        features=["unlimited_cloud_storage", "unlimited_takes", "advanced_ai_analysis", "direct_submission", "share_links", "priority_support"]
+    )
+}
+
+@api_router.get("/membership/tiers")
+async def get_membership_tiers():
+    """Get available membership tiers."""
+    return {"tiers": MEMBERSHIP_TIERS}
+
+@api_router.get("/membership/status")
+async def get_membership_status(current_user: dict = Depends(get_current_user)):
+    """Get current user's membership status."""
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
+    
+    membership = user.get("membership", {
+        "tier": "free",
+        "cloud_storage_used_mb": 0,
+        "cloud_storage_limit_mb": 0,
+        "expires_at": None
+    })
+    
+    tier_info = MEMBERSHIP_TIERS.get(membership.get("tier", "free"))
+    
+    return {
+        "membership": membership,
+        "tier_info": tier_info,
+        "cloud_configured": CLOUDINARY_CONFIGURED
+    }
+
+@api_router.post("/membership/upgrade")
+async def upgrade_membership(
+    tier: str = "pro",
+    current_user: dict = Depends(get_current_user)
+):
+    """Upgrade to Pro membership (placeholder - integrate with Stripe for payments)."""
+    if tier not in MEMBERSHIP_TIERS:
+        raise HTTPException(status_code=400, detail="Invalid membership tier")
+    
+    # In production, this would verify payment via Stripe
+    # For now, just upgrade the user
+    tier_info = MEMBERSHIP_TIERS[tier]
+    
+    membership = {
+        "tier": tier,
+        "cloud_storage_used_mb": 0,
+        "cloud_storage_limit_mb": tier_info.cloud_storage_mb,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    }
+    
+    await db.users.update_one(
+        {"id": current_user["id"]},
+        {"$set": {"membership": membership}}
+    )
+    
+    return {"message": f"Upgraded to {tier} membership", "membership": membership}
+
+# ============== CLOUD STORAGE (PRO FEATURE) ==============
+
+@api_router.get("/cloudinary/signature", response_model=CloudUploadSignature)
+async def get_cloudinary_signature(
+    resource_type: str = Query("video", enum=["image", "video"]),
+    current_user: dict = Depends(get_current_user)
+):
+    """Get signed upload params for Cloudinary (Pro members only)."""
+    if not CLOUDINARY_CONFIGURED:
+        raise HTTPException(status_code=503, detail="Cloud storage not configured")
+    
+    # Check membership
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
+    membership = user.get("membership", {"tier": "free"})
+    
+    if membership.get("tier") != "pro":
+        raise HTTPException(status_code=403, detail="Cloud storage requires Pro membership")
+    
+    folder = f"users/{current_user['id']}/takes"
+    timestamp = int(time.time())
+    
+    params = {
+        "timestamp": timestamp,
+        "folder": folder,
+        "resource_type": resource_type
+    }
+    
+    signature = cloudinary.utils.api_sign_request(
+        params,
+        os.environ.get("CLOUDINARY_API_SECRET")
+    )
+    
+    return CloudUploadSignature(
+        signature=signature,
+        timestamp=timestamp,
+        cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
+        api_key=os.environ.get("CLOUDINARY_API_KEY"),
+        folder=folder,
+        resource_type=resource_type
+    )
+
+@api_router.post("/projects/{project_id}/takes/{take_id}/upload-cloud")
+async def upload_take_to_cloud(
+    project_id: str,
+    take_id: str,
+    cloud_url: str,
+    cloud_public_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update take with cloud storage URL after upload."""
+    take = await db.takes.find_one(
+        {"id": take_id, "project_id": project_id, "user_id": current_user["id"]}
+    )
+    if not take:
+        raise HTTPException(status_code=404, detail="Take not found")
+    
+    await db.takes.update_one(
+        {"id": take_id},
+        {"$set": {
+            "cloud_url": cloud_url,
+            "cloud_public_id": cloud_public_id,
+            "storage_type": "cloud"
+        }}
+    )
+    
+    return {"message": "Take uploaded to cloud", "cloud_url": cloud_url}
+
+# ============== SHARE/SUBMISSION ==============
+
+@api_router.post("/projects/{project_id}/takes/{take_id}/share", response_model=ShareResponse)
+async def create_share_link(
+    project_id: str,
+    take_id: str,
+    share_data: ShareCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create a shareable link for a take."""
+    take = await db.takes.find_one(
+        {"id": take_id, "project_id": project_id, "user_id": current_user["id"]}
+    )
+    if not take:
+        raise HTTPException(status_code=404, detail="Take not found")
+    
+    project = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    
+    share_id = str(uuid.uuid4())
+    share_token = str(uuid.uuid4()).replace("-", "")[:16]
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(hours=share_data.expires_hours)
+    
+    # Get base URL for share link
+    base_url = os.environ.get("FRONTEND_URL", "https://prompter-stage.preview.emergentagent.com")
+    
+    share_doc = {
+        "id": share_id,
+        "take_id": take_id,
+        "project_id": project_id,
+        "user_id": current_user["id"],
+        "share_token": share_token,
+        "share_url": f"{base_url}/shared/{share_token}",
+        "recipient_email": share_data.recipient_email,
+        "recipient_name": share_data.recipient_name,
+        "message": share_data.message,
+        "project_title": project.get("title", "Audition Tape"),
+        "views": 0,
+        "expires_at": expires_at.isoformat(),
+        "created_at": now.isoformat()
+    }
+    
+    await db.shares.insert_one(share_doc)
+    
+    return ShareResponse(**share_doc)
+
+@api_router.get("/shared/{share_token}")
+async def get_shared_take(share_token: str):
+    """Get a shared take by token (public endpoint)."""
+    share = await db.shares.find_one({"share_token": share_token}, {"_id": 0})
+    if not share:
+        raise HTTPException(status_code=404, detail="Share link not found")
+    
+    # Check expiration
+    expires_at = datetime.fromisoformat(share["expires_at"].replace("Z", "+00:00"))
+    if datetime.now(timezone.utc) > expires_at:
+        raise HTTPException(status_code=410, detail="Share link has expired")
+    
+    # Increment views
+    await db.shares.update_one(
+        {"share_token": share_token},
+        {"$inc": {"views": 1}}
+    )
+    
+    # Get the take
+    take = await db.takes.find_one({"id": share["take_id"]}, {"_id": 0})
+    if not take:
+        raise HTTPException(status_code=404, detail="Take not found")
+    
+    return {
+        "project_title": share.get("project_title", "Audition Tape"),
+        "recipient_name": share.get("recipient_name"),
+        "message": share.get("message"),
+        "take": {
+            "take_number": take["take_number"],
+            "duration": take["duration"],
+            "video_url": take.get("cloud_url") or take.get("video_url"),
+            "notes": take.get("notes")
+        },
+        "views": share["views"] + 1,
+        "expires_at": share["expires_at"]
+    }
+
+@api_router.get("/projects/{project_id}/takes/{take_id}/shares", response_model=List[ShareResponse])
+async def get_take_shares(
+    project_id: str,
+    take_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all share links for a take."""
+    shares = await db.shares.find(
+        {"take_id": take_id, "user_id": current_user["id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    
+    return [ShareResponse(**s) for s in shares]
+
+@api_router.delete("/shares/{share_id}")
+async def delete_share(share_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a share link."""
+    result = await db.shares.delete_one({"id": share_id, "user_id": current_user["id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Share not found")
+    
+    return {"message": "Share link deleted"}
+
 # ============== HEALTH CHECK ==============
 
 @api_router.get("/")
