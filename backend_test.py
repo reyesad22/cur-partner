@@ -71,7 +71,24 @@ class CuePartnerAPITester:
         print("\n🏥 TESTING HEALTH ENDPOINTS")
         
         self.run_test("Root endpoint", "GET", "", 200)
-        self.run_test("Health check", "GET", "health", 200)
+        
+        # Test health check with specific AI configuration verification
+        success, health_data = self.run_test("Health check", "GET", "health", 200)
+        if success:
+            ai_configured = health_data.get('ai_configured', False)
+            elevenlabs_configured = health_data.get('elevenlabs_configured', False)
+            
+            print(f"   🤖 AI Configured: {ai_configured}")
+            print(f"   🔊 ElevenLabs Configured: {elevenlabs_configured}")
+            
+            if ai_configured and elevenlabs_configured:
+                print("   ✅ Both AI and ElevenLabs are properly configured!")
+            else:
+                print("   ❌ Missing configuration - AI or ElevenLabs not configured")
+                if not ai_configured:
+                    print("       - AI (GPT-5.2) not configured")
+                if not elevenlabs_configured:
+                    print("       - ElevenLabs TTS not configured")
 
     def test_demo_login(self):
         """Test demo user login"""
