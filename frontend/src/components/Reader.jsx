@@ -202,8 +202,12 @@ const Reader = () => {
     const cleanSpoken = spoken.replace(/[^\w\s]/g, '').trim().toLowerCase();
     const cleanTarget = target.replace(/[^\w\s]/g, '').trim().toLowerCase();
     
-    // If spoken text is too short, require more matching
-    if (cleanSpoken.length < 3) return false;
+    // If spoken text is too short, wait for more
+    if (cleanSpoken.length < 5) return false;
+    
+    // Direct substring check - if spoken contains significant part of target
+    if (cleanTarget.includes(cleanSpoken) && cleanSpoken.length > 8) return true;
+    if (cleanSpoken.includes(cleanTarget.substring(0, Math.min(20, cleanTarget.length)))) return true;
     
     // Get words
     const spokenWords = cleanSpoken.split(/\s+/).filter(w => w.length > 2);
@@ -211,13 +215,20 @@ const Reader = () => {
     
     if (spokenWords.length === 0 || targetWords.length === 0) return false;
     
-    // Count matching words (allowing partial matches)
+    // Count matching words
     let matchCount = 0;
-    for (const spoken of spokenWords) {
-      for (const target of targetWords) {
-        if (target.includes(spoken) || spoken.includes(target)) {
+    for (const spokenWord of spokenWords) {
+      for (const targetWord of targetWords) {
+        // Check if words match or are very similar
+        if (targetWord === spokenWord) {
           matchCount++;
           break;
+        }
+        if (targetWord.includes(spokenWord) || spokenWord.includes(targetWord)) {
+          if (Math.min(spokenWord.length, targetWord.length) >= 3) {
+            matchCount++;
+            break;
+          }
         }
       }
     }
@@ -225,8 +236,8 @@ const Reader = () => {
     // Calculate match ratio
     const matchRatio = matchCount / Math.min(spokenWords.length, targetWords.length);
     
-    // Need at least 40% word match OR 3 matching words for longer lines
-    return matchRatio >= 0.4 || matchCount >= 3;
+    // Need at least 30% word match OR 2 matching words
+    return matchRatio >= 0.3 || matchCount >= 2;
   };
 
   const handleNextLine = () => {
