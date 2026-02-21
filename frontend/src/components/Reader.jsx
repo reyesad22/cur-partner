@@ -478,26 +478,51 @@ const Reader = () => {
         )}
       </div>
 
-      {/* Controls Bar */}
-      <div className="border-t border-border bg-card p-3 md:p-4 shrink-0 safe-area-bottom">
-        {/* Status indicator */}
-        <div className="max-w-4xl mx-auto mb-3 text-center">
-          {currentLine?.is_user_line ? (
-            <div className="flex items-center justify-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-green-500 animate-pulse' : 'bg-purple-500'}`} />
-              <p className="text-sm font-medium text-purple-400">
-                Your turn - {isListening ? "Listening..." : "Tap mic to start"}
+      {/* Controls Bar - Redesigned like Actoncue */}
+      <div className="border-t border-border bg-card shrink-0 safe-area-bottom">
+        {/* Voice Transcript Bar - Always visible when listening */}
+        {isListening && (
+          <div className="bg-secondary/50 border-b border-border px-4 py-3">
+            <div className="max-w-4xl mx-auto flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0">
+                <Mic className="w-4 h-4 text-purple-400 animate-pulse" />
+              </div>
+              <p className="text-sm text-muted-foreground flex-1 min-h-[20px]">
+                {transcript ? `...${transcript}` : "Listening for your voice..."}
               </p>
+              <Button 
+                onClick={toggleListening}
+                variant="destructive"
+                size="sm"
+                className="shrink-0"
+                data-testid="stop-listening-btn"
+              >
+                Stop
+              </Button>
             </div>
-          ) : (
-            <div className="flex items-center justify-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${audioRef.current && !audioRef.current.paused ? 'bg-pink-500 animate-pulse' : 'bg-muted-foreground'}`} />
-              <p className="text-sm text-muted-foreground">
-                {currentLine?.character}'s line - {audioRef.current && !audioRef.current.paused ? "Playing..." : "will auto-play"}
-              </p>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
+        
+        {/* Main Controls */}
+        <div className="p-3 md:p-4">
+          {/* Status indicator */}
+          <div className="max-w-4xl mx-auto mb-3 text-center">
+            {currentLine?.is_user_line ? (
+              <div className="flex items-center justify-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-green-500 animate-pulse' : 'bg-purple-500'}`} />
+                <p className="text-sm font-medium text-purple-400">
+                  {isListening ? "Listening - speak your line" : "Your turn - tap Start to begin"}
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${audioRef.current && !audioRef.current.paused ? 'bg-pink-500 animate-pulse' : 'bg-muted-foreground'}`} />
+                <p className="text-sm text-muted-foreground">
+                  {currentLine?.character}'s line - {audioRef.current && !audioRef.current.paused ? "Playing..." : "will auto-play"}
+                </p>
+              </div>
+            )}
+          </div>
         
         <div className="max-w-4xl mx-auto flex items-center justify-center gap-2 md:gap-4">
           <Button
