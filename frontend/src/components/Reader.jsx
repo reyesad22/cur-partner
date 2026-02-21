@@ -524,70 +524,70 @@ const Reader = () => {
             )}
           </div>
         
-        <div className="max-w-4xl mx-auto flex items-center justify-center gap-2 md:gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleReset}
-            className="w-10 h-10 md:w-12 md:h-12"
-            data-testid="reset-btn"
-          >
-            <RotateCcw className="w-4 h-4 md:w-5 md:h-5" />
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsMuted(!isMuted)}
-            className={`w-10 h-10 md:w-12 md:h-12 ${isMuted ? 'text-red-400' : ''}`}
-            data-testid="mute-btn"
-          >
-            {isMuted ? (
-              <VolumeX className="w-4 h-4 md:w-5 md:h-5" />
-            ) : (
-              <Volume2 className="w-4 h-4 md:w-5 md:h-5" />
-            )}
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handlePrevLine}
-            disabled={currentLineIndex === 0}
-            className="w-10 h-10 md:w-12 md:h-12"
-            data-testid="prev-line-btn"
-          >
-            <ChevronUp className="w-5 h-5 md:w-6 md:h-6" />
-          </Button>
-          
-          <Button
-            onClick={toggleListening}
-            className={`w-16 h-16 md:w-20 md:h-20 rounded-full transition-all ${
-              isListening 
-                ? 'bg-red-500 hover:bg-red-600 scale-110' 
-                : 'bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
-            }`}
-            data-testid="mic-btn"
-          >
-            {isListening ? (
-              <MicOff className="w-7 h-7 md:w-8 md:h-8" />
-            ) : (
-              <Mic className="w-7 h-7 md:w-8 md:h-8" />
-            )}
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleNextLine}
-            disabled={currentLineIndex === lines.length - 1}
-            className="w-10 h-10 md:w-12 md:h-12"
-            data-testid="next-line-btn"
-          >
-            <ChevronDown className="w-5 h-5 md:w-6 md:h-6" />
-          </Button>
-          
-          <Button
+          {!isListening ? (
+            // Show Start button when not listening
+            <div className="max-w-4xl mx-auto flex items-center justify-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleReset}
+                className="w-10 h-10"
+                data-testid="reset-btn"
+              >
+                <RotateCcw className="w-5 h-5" />
+              </Button>
+              
+              <Button
+                onClick={toggleListening}
+                className="px-12 py-6 text-lg font-semibold bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-full"
+                data-testid="start-btn"
+              >
+                <Mic className="w-5 h-5 mr-2" />
+                Start Rehearsal
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsMuted(!isMuted)}
+                className={`w-10 h-10 ${isMuted ? 'text-red-400' : ''}`}
+                data-testid="mute-btn"
+              >
+                {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+              </Button>
+            </div>
+          ) : (
+            // Show navigation controls when listening
+            <div className="max-w-4xl mx-auto flex items-center justify-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handlePrevLine}
+                disabled={currentLineIndex === 0}
+                className="w-10 h-10"
+                data-testid="prev-line-btn"
+              >
+                <ChevronUp className="w-5 h-5" />
+              </Button>
+              
+              <span className="text-sm text-muted-foreground px-4">
+                Line {currentLineIndex + 1} of {lines.length}
+              </span>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleNextLine}
+                disabled={currentLineIndex === lines.length - 1}
+                className="w-10 h-10"
+                data-testid="next-line-btn"
+              >
+                <ChevronDown className="w-5 h-5" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
             variant="ghost"
             size="icon"
             onClick={togglePlayPause}
