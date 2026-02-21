@@ -73,6 +73,12 @@ JWT_EXPIRATION_HOURS = 24
 # Create the main app
 app = FastAPI(title="CuePartner API", version="2.0.0")
 
+# Root-level health check for deployment - MUST be registered early
+@app.get("/health")
+async def root_health_check():
+    """Health check endpoint for Kubernetes deployment."""
+    return {"status": "healthy"}
+
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
