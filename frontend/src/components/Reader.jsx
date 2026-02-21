@@ -489,9 +489,9 @@ const Reader = () => {
         )}
       </div>
 
-      {/* Controls Bar - Redesigned like Actoncue */}
+      {/* Controls Bar - With all icons always visible */}
       <div className="border-t border-border bg-card shrink-0 safe-area-bottom">
-        {/* Voice Transcript Bar - Always visible when listening */}
+        {/* Voice Transcript Bar - Visible when listening */}
         {isListening && (
           <div className="bg-secondary/50 border-b border-border px-4 py-3">
             <div className="max-w-4xl mx-auto flex items-center gap-3">
@@ -514,7 +514,7 @@ const Reader = () => {
           </div>
         )}
         
-        {/* Main Controls */}
+        {/* Main Controls - Always visible */}
         <div className="p-3 md:p-4">
           {/* Status indicator */}
           <div className="max-w-4xl mx-auto mb-3 text-center">
@@ -522,7 +522,7 @@ const Reader = () => {
               <div className="flex items-center justify-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-green-500 animate-pulse' : 'bg-purple-500'}`} />
                 <p className="text-sm font-medium text-purple-400">
-                  {isListening ? "Listening - speak your line" : "Your turn - tap Start to begin"}
+                  {isListening ? "Listening - speak your line" : "Your turn - tap mic to start"}
                 </p>
               </div>
             ) : (
@@ -535,68 +535,101 @@ const Reader = () => {
             )}
           </div>
         
-          {!isListening ? (
-            // Show Start button when not listening
-            <div className="max-w-4xl mx-auto flex items-center justify-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleReset}
-                className="w-10 h-10"
-                data-testid="reset-btn"
-              >
-                <RotateCcw className="w-5 h-5" />
-              </Button>
-              
-              <Button
-                onClick={toggleListening}
-                className="px-12 py-6 text-lg font-semibold bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-full"
-                data-testid="start-btn"
-              >
-                <Mic className="w-5 h-5 mr-2" />
-                Start Rehearsal
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsMuted(!isMuted)}
-                className={`w-10 h-10 ${isMuted ? 'text-red-400' : ''}`}
-                data-testid="mute-btn"
-              >
-                {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-              </Button>
-            </div>
-          ) : (
-            // Show navigation controls when listening
-            <div className="max-w-4xl mx-auto flex items-center justify-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handlePrevLine}
-                disabled={currentLineIndex === 0}
-                className="w-10 h-10"
-                data-testid="prev-line-btn"
-              >
-                <ChevronUp className="w-5 h-5" />
-              </Button>
-              
-              <span className="text-sm text-muted-foreground px-4">
-                Line {currentLineIndex + 1} of {lines.length}
-              </span>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleNextLine}
-                disabled={currentLineIndex === lines.length - 1}
-                className="w-10 h-10"
-                data-testid="next-line-btn"
-              >
-                <ChevronDown className="w-5 h-5" />
-              </Button>
-            </div>
-          )}
+          {/* All controls always visible */}
+          <div className="max-w-4xl mx-auto flex items-center justify-center gap-2 md:gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleReset}
+              className="w-10 h-10 md:w-12 md:h-12"
+              title="Reset"
+              data-testid="reset-btn"
+            >
+              <RotateCcw className="w-5 h-5" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsMuted(!isMuted)}
+              className={`w-10 h-10 md:w-12 md:h-12 ${isMuted ? 'text-red-400' : ''}`}
+              title={isMuted ? "Unmute" : "Mute"}
+              data-testid="mute-btn"
+            >
+              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePrevLine}
+              disabled={currentLineIndex === 0}
+              className="w-10 h-10 md:w-12 md:h-12"
+              title="Previous line"
+              data-testid="prev-line-btn"
+            >
+              <ChevronUp className="w-6 h-6" />
+            </Button>
+            
+            {/* Main mic button */}
+            <Button
+              onClick={toggleListening}
+              className={`w-16 h-16 md:w-20 md:h-20 rounded-full transition-all ${
+                isListening 
+                  ? 'bg-red-500 hover:bg-red-600 scale-105' 
+                  : 'bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+              }`}
+              title={isListening ? "Stop listening" : "Start listening"}
+              data-testid="mic-btn"
+            >
+              {isListening ? (
+                <MicOff className="w-7 h-7 md:w-8 md:h-8" />
+              ) : (
+                <Mic className="w-7 h-7 md:w-8 md:h-8" />
+              )}
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleNextLine}
+              disabled={currentLineIndex === lines.length - 1}
+              className="w-10 h-10 md:w-12 md:h-12"
+              title="Next line"
+              data-testid="next-line-btn"
+            >
+              <ChevronDown className="w-6 h-6" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={togglePlayPause}
+              className="w-10 h-10 md:w-12 md:h-12"
+              title={isPlaying ? "Pause" : "Play"}
+              data-testid="play-pause-btn"
+            >
+              {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowSettings(true)}
+              className="w-10 h-10 md:w-12 md:h-12"
+              title="Settings"
+              data-testid="settings-btn"
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
+          </div>
+          
+          {/* Line counter */}
+          <div className="max-w-4xl mx-auto mt-2 text-center">
+            <span className="text-xs text-muted-foreground">
+              Line {currentLineIndex + 1} of {lines.length}
+            </span>
+          </div>
         </div>
       </div>
     </div>
