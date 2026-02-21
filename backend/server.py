@@ -318,7 +318,16 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
     reader = PdfReader(io.BytesIO(pdf_content))
     full_text = ""
     for page in reader.pages:
-        full_text += page.extract_text() + "\n"
+        page_text = page.extract_text()
+        if page_text:
+            full_text += page_text + "\n"
+    
+    logging.info(f"PDF extracted text length: {len(full_text)}")
+    logging.info(f"First 500 chars: {full_text[:500]}")
+    
+    if not full_text.strip():
+        logging.error("PDF extraction returned empty text")
+        raise ValueError("Could not extract text from PDF. The PDF might be image-based or encrypted.")
     
     lines_data = []
     characters = set()
@@ -326,14 +335,19 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
     line_number = 0
     current_dialogue = []
     
-    # Pattern for character names (all caps, may have parenthetical)
-    # Examples: JOHN, SARAH (V.O.), DR. SMITH, MRS. JONES
+    # Pattern for character names - more flexible
+    # Matches: JOHN, SARAH (V.O.), DR. SMITH, MRS. JONES, DETECTIVE VAZIRI
     character_pattern = re.compile(r'^([A-Z][A-Z\s\-\'\.]+?)(?:\s*\([^)]*\))?\s*$')
+    
+    # Also try to match character names followed by colon
+    # Matches: JOHN: or John:
+    colon_pattern = re.compile(r'^([A-Za-z][A-Za-z\s\-\'\.]+?):\s*(.*)$')
     
     # Scene/action markers to skip
     skip_words = {'INT', 'EXT', 'FADE', 'CUT', 'SCENE', 'ACT', 'END', 'CONTINUED', 'CONT', 
                   'THE END', 'MORE', 'DISSOLVE', 'SMASH', 'INTERCUT', 'FLASHBACK', 
-                  'BACK TO', 'ANGLE', 'CLOSE', 'WIDE', 'POV', 'INSERT'}
+                  'BACK TO', 'ANGLE', 'CLOSE', 'WIDE', 'POV', 'INSERT', 'SUPER', 'TITLE',
+                  'V.O.', 'O.S.', 'O.C.', 'CONT\'D'}
     
     text_lines = full_text.split('\n')
     
@@ -343,7 +357,7 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
             # Empty line - save accumulated dialogue if any
             if current_character and current_dialogue:
                 dialogue_text = ' '.join(current_dialogue).strip()
-                if dialogue_text:
+                if dialogue_text and len(dialogue_text) > 1:
                     line_number += 1
                     lines_data.append({
                         "id": str(uuid.uuid4()),
@@ -357,20 +371,52 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
                 current_dialogue = []
             continue
         
-        # Check if this is a character name
+        # First check for "CHARACTER: dialogue" format
+        colon_match = colon_pattern.match(stripped)
+        if colon_match:
+            char_name = colon_match.group(1).strip()
+            dialogue = colon_match.group(2).strip()
+            
+            # Check if it's a valid character name (not a scene direction)
+            upper_name = char_name.upper()
+            if not any(skip_word in upper_name for skip_word in skip_words):
+                # Save previous dialogue
+                if current_character and current_dialogue:
+                    dialogue_text = ' '.join(current_dialogue).strip()
+                    if dialogue_text and len(dialogue_text) > 1:
+                        line_number += 1
+                        lines_data.append({
+                            "id": str(uuid.uuid4()),
+                            "character": current_character,
+                            "text": dialogue_text,
+                            "line_number": line_number,
+                            "is_user_line": False,
+                            "emotion": None,
+                            "audio_url": None
+                        })
+                    current_dialogue = []
+                
+                current_character = char_name.title()
+                characters.add(current_character)
+                if dialogue:
+                    current_dialogue.append(dialogue)
+                continue
+        
+        # Check if this is a character name (all caps on its own line)
         char_match = character_pattern.match(stripped)
         if char_match and len(stripped) < 50:
             potential_char = char_match.group(1).strip()
             
             # Must be mostly uppercase to be a character name
-            if potential_char.isupper() or sum(1 for c in potential_char if c.isupper()) >= len(potential_char.replace(' ','')) * 0.7:
+            uppercase_ratio = sum(1 for c in potential_char if c.isupper()) / max(len(potential_char.replace(' ','')), 1)
+            if uppercase_ratio >= 0.7:
                 # Skip scene directions and technical terms
                 upper_char = potential_char.upper()
                 if not any(skip_word in upper_char for skip_word in skip_words):
                     # Save any previous dialogue
                     if current_character and current_dialogue:
                         dialogue_text = ' '.join(current_dialogue).strip()
-                        if dialogue_text:
+                        if dialogue_text and len(dialogue_text) > 1:
                             line_number += 1
                             lines_data.append({
                                 "id": str(uuid.uuid4()),
@@ -395,13 +441,16 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
             # Skip page numbers
             if stripped.isdigit():
                 continue
+            # Skip very short lines that might be formatting
+            if len(stripped) < 2:
+                continue
             # Add to current dialogue
             current_dialogue.append(stripped)
     
     # Save any remaining dialogue
     if current_character and current_dialogue:
         dialogue_text = ' '.join(current_dialogue).strip()
-        if dialogue_text:
+        if dialogue_text and len(dialogue_text) > 1:
             line_number += 1
             lines_data.append({
                 "id": str(uuid.uuid4()),
@@ -412,6 +461,12 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
                 "emotion": None,
                 "audio_url": None
             })
+    
+    logging.info(f"Parsed {len(lines_data)} lines with {len(characters)} characters: {characters}")
+    
+    if not lines_data:
+        logging.warning("No dialogue lines found in PDF")
+        # Return empty scene rather than failing
     
     scene = Scene(
         id=str(uuid.uuid4()),
