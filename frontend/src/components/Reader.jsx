@@ -588,27 +588,6 @@ const Reader = () => {
           )}
         </div>
       </div>
-            variant="ghost"
-            size="icon"
-            onClick={togglePlayPause}
-            className="w-10 h-10 md:w-12 md:h-12"
-            data-testid="play-pause-btn"
-          >
-            {isPlaying ? (
-              <Pause className="w-4 h-4 md:w-5 md:h-5" />
-            ) : (
-              <Play className="w-4 h-4 md:w-5 md:h-5" />
-            )}
-          </Button>
-        </div>
-        
-        {/* Debug transcript when enabled */}
-        {showDebug && transcript && (
-          <div className="max-w-4xl mx-auto mt-3 p-2 rounded bg-secondary/50 text-xs text-muted-foreground text-center">
-            Heard: "{transcript}"
-          </div>
-        )}
-      </div>
     </div>
   );
 };
