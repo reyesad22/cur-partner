@@ -100,10 +100,39 @@ const ProjectDetail = () => {
         toast.success("Script uploaded! (AI analysis unavailable)");
       }
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to upload PDF");
+      toast.error(error.response?.data?.detail || "Failed to upload PDF. Try pasting your script instead.");
     } finally {
       setUploading(false);
       setAnalyzing(false);
+    }
+  };
+
+  const handlePasteScript = async () => {
+    if (!pastedScript.trim()) {
+      toast.error("Please paste your script first");
+      return;
+    }
+    
+    setPasting(true);
+    try {
+      toast.info("Analyzing script with AI...");
+      const response = await api.post(`/projects/${id}/paste-script`, {
+        script_text: pastedScript
+      }, { timeout: 120000 });
+      
+      setProject(response.data);
+      setShowPasteDialog(false);
+      setPastedScript("");
+      
+      if (response.data.ai_analyzed) {
+        toast.success("Script analyzed! AI detected characters and emotions.");
+      } else {
+        toast.success("Script parsed! (AI analysis unavailable)");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to parse script. Check the format.");
+    } finally {
+      setPasting(false);
     }
   };
 
