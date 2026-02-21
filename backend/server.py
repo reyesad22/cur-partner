@@ -280,6 +280,9 @@ class DirectSubmissionResponse(BaseModel):
     share_url: str
     email_sent: bool
 
+class PasteScriptRequest(BaseModel):
+    script_text: str
+
 # ============== HELPER FUNCTIONS ==============
 
 def hash_password(password: str) -> str:
