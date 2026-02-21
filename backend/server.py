@@ -479,6 +479,134 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
     
     return [scene], list(characters)
 
+def parse_script_text(script_text: str) -> tuple[List[Scene], List[str]]:
+    """Parse pasted script text and extract scenes with dialogue.
+    Supports formats like:
+    - CHARACTER: dialogue
+    - CHARACTER
+      dialogue
+    - CHARACTER (V.O.): dialogue
+    """
+    lines_data = []
+    characters = set()
+    current_character = None
+    line_number = 0
+    current_dialogue = []
+    
+    # Pattern for "CHARACTER: dialogue" format
+    colon_pattern = re.compile(r'^([A-Za-z][A-Za-z\s\-\'\.]+?)(?:\s*\([^)]*\))?:\s*(.*)$')
+    
+    # Pattern for standalone character names
+    char_pattern = re.compile(r'^([A-Z][A-Z\s\-\'\.]+?)(?:\s*\([^)]*\))?\s*$')
+    
+    skip_words = {'INT', 'EXT', 'FADE', 'CUT', 'SCENE', 'ACT', 'END', 'CONTINUED'}
+    
+    for line in script_text.split('\n'):
+        stripped = line.strip()
+        
+        if not stripped:
+            if current_character and current_dialogue:
+                dialogue_text = ' '.join(current_dialogue).strip()
+                if dialogue_text:
+                    line_number += 1
+                    lines_data.append({
+                        "id": str(uuid.uuid4()),
+                        "character": current_character,
+                        "text": dialogue_text,
+                        "line_number": line_number,
+                        "is_user_line": False,
+                        "emotion": None,
+                        "audio_url": None
+                    })
+                current_dialogue = []
+            continue
+        
+        # Try colon format first: CHARACTER: dialogue
+        colon_match = colon_pattern.match(stripped)
+        if colon_match:
+            char_name = colon_match.group(1).strip()
+            dialogue = colon_match.group(2).strip()
+            
+            upper_name = char_name.upper()
+            if not any(sw in upper_name for sw in skip_words) and len(char_name) < 40:
+                if current_character and current_dialogue:
+                    dialogue_text = ' '.join(current_dialogue).strip()
+                    if dialogue_text:
+                        line_number += 1
+                        lines_data.append({
+                            "id": str(uuid.uuid4()),
+                            "character": current_character,
+                            "text": dialogue_text,
+                            "line_number": line_number,
+                            "is_user_line": False,
+                            "emotion": None,
+                            "audio_url": None
+                        })
+                    current_dialogue = []
+                
+                current_character = char_name.title()
+                characters.add(current_character)
+                if dialogue:
+                    current_dialogue.append(dialogue)
+                continue
+        
+        # Try standalone character name
+        char_match = char_pattern.match(stripped)
+        if char_match and len(stripped) < 40:
+            potential_char = char_match.group(1).strip()
+            if potential_char.isupper():
+                upper_char = potential_char.upper()
+                if not any(sw in upper_char for sw in skip_words):
+                    if current_character and current_dialogue:
+                        dialogue_text = ' '.join(current_dialogue).strip()
+                        if dialogue_text:
+                            line_number += 1
+                            lines_data.append({
+                                "id": str(uuid.uuid4()),
+                                "character": current_character,
+                                "text": dialogue_text,
+                                "line_number": line_number,
+                                "is_user_line": False,
+                                "emotion": None,
+                                "audio_url": None
+                            })
+                        current_dialogue = []
+                    
+                    current_character = potential_char.title()
+                    characters.add(current_character)
+                    continue
+        
+        # Accumulate dialogue
+        if current_character:
+            if stripped.startswith('(') and stripped.endswith(')'):
+                continue
+            if stripped.isdigit():
+                continue
+            current_dialogue.append(stripped)
+    
+    # Save remaining
+    if current_character and current_dialogue:
+        dialogue_text = ' '.join(current_dialogue).strip()
+        if dialogue_text:
+            line_number += 1
+            lines_data.append({
+                "id": str(uuid.uuid4()),
+                "character": current_character,
+                "text": dialogue_text,
+                "line_number": line_number,
+                "is_user_line": False,
+                "emotion": None,
+                "audio_url": None
+            })
+    
+    scene = Scene(
+        id=str(uuid.uuid4()),
+        name="Main Scene",
+        lines=[Line(**l) for l in lines_data]
+    )
+    
+    return [scene], list(characters)
+
 async def analyze_script_with_ai(scenes: List[Scene], characters: List[str]) -> tuple[List[CharacterAnalysis], List[Scene]]:
     """Use GPT-5.2 to analyze characters and emotions in the script."""
     if not EMERGENT_LLM_KEY:
