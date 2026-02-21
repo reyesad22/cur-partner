@@ -317,14 +317,54 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 
 **Status:** ✅ IMPLEMENTED AND TESTED
 
+## Update (Feb 21, 2026 - Session 7 Continued - Part 2)
+### Reader/Teleprompter UX Improvements
+
+**Issues Fixed:**
+
+1. **Auto-Advance After Cue Audio**
+   - When AI reads a cue line, it automatically advances to the next line after audio ends
+   - No more manual tapping "Next" after every cue line
+
+2. **Improved Voice Detection**
+   - Better fuzzy matching algorithm for speech recognition
+   - More reliable detection when actor speaks their lines
+   - 40% word match threshold or 3+ matching words
+
+3. **Better PDF Parsing**
+   - Improved character name detection (handles multi-word names, titles)
+   - Better handling of multi-line dialogue
+   - Skips more stage directions and technical terms
+   - Accumulates dialogue correctly across line breaks
+
+4. **Enhanced Reader UI**
+   - Clear status indicator ("Your turn - Listening..." / "Playing...")
+   - Animated status dot showing current state
+   - Larger mic button with scale animation when active
+   - Debug transcript display when enabled
+
+5. **Deployment Fixes**
+   - CORS set to "*" for production
+   - Root-level `/health` endpoint added
+   - Hardcoded preview URLs removed
+
+**How Rehearsal Works Now:**
+1. Start Reader from project page
+2. Tap the mic button to begin
+3. When it's your line (purple highlight), speak it
+4. Voice detection recognizes your line and advances
+5. When it's a cue line (other character), AI audio plays
+6. After audio ends, automatically advances to next line
+7. Repeat until script is complete
+
 ## Pending Tasks
 
 ### P2 - Future
 1. **Stripe Integration**: Payment processing for Pro membership
 2. **Backend Refactoring**: Break down monolithic server.py into modules
 3. **PostgreSQL Migration**: Optional migration to Supabase if requested
-4. **Domain Verification**: Verify custom domain in Resend to send emails to any recipient
+4. **Domain Verification**: Verify custom domain in Resend for production emails
 
 ## Known Issues
 - **Membership System**: UI-only, no payment integration (MOCKED)
-- **Resend Test Mode**: Currently can only send emails to verified email (alerecaresolutions@gmail.com). To send to any recipient, verify a domain at resend.com/domains
+- **Resend Test Mode**: Currently can only send emails to verified email. Verify domain for production use.
