@@ -73,6 +73,28 @@ JWT_EXPIRATION_HOURS = 24
 # Create the main app
 app = FastAPI(title="CuePartner API", version="2.0.0")
 
+# CORS Middleware - MUST be added early before routes
+# When allow_credentials=True, we need explicit origins (not "*")
+cors_origins = os.environ.get('CORS_ORIGINS', '*')
+if cors_origins == "*":
+    # Allow all origins without credentials
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    # Specific origins with credentials
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins.split(','),
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
 # Root-level health check for deployment - MUST be registered early
 @app.get("/health")
 async def root_health_check():
