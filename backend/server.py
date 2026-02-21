@@ -960,6 +960,58 @@ async def upload_pdf(
     updated = await db.projects.find_one({"id": project_id}, {"_id": 0})
     return ProjectResponse(**updated)
 
+@api_router.post("/projects/{project_id}/paste-script", response_model=ProjectResponse)
+async def paste_script(
+    project_id: str,
+    request: PasteScriptRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Parse pasted script text instead of PDF upload."""
+    project = await db.projects.find_one({"id": project_id, "user_id": current_user["id"]})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if not request.script_text.strip():
+        raise HTTPException(status_code=400, detail="Script text cannot be empty")
+    
+    try:
+        scenes, characters = parse_script_text(request.script_text)
+    except Exception as e:
+        logging.error(f"Script parsing error: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to parse script: {str(e)}")
+    
+    if not characters:
+        raise HTTPException(
+            status_code=400, 
+            detail="Could not detect any characters. Use format like 'CHARACTER: dialogue' or 'CHARACTER' on its own line followed by dialogue."
+        )
+    
+    # Run AI analysis
+    try:
+        character_analysis, analyzed_scenes = await analyze_script_with_ai(scenes, characters)
+        ai_analyzed = True
+    except Exception as e:
+        logging.error(f"AI analysis error: {e}")
+        character_analysis = []
+        analyzed_scenes = scenes
+        ai_analyzed = False
+    
+    scenes_data = [s.model_dump() for s in analyzed_scenes]
+    char_analysis_data = [c.model_dump() for c in character_analysis]
+    
+    update_data = {
+        "scenes": scenes_data,
+        "characters": characters,
+        "character_analysis": char_analysis_data,
+        "ai_analyzed": ai_analyzed,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.projects.update_one({"id": project_id}, {"$set": update_data})
+    
+    updated = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    return ProjectResponse(**updated)
+
 # ============== USER CHARACTER ==============
 
 @api_router.post("/projects/{project_id}/set-character", response_model=ProjectResponse)
