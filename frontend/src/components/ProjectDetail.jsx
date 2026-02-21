@@ -2,6 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "@/App";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -24,7 +31,8 @@ import {
   User,
   Zap,
   Pause,
-  Video
+  Video,
+  ClipboardPaste
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,6 +50,9 @@ const ProjectDetail = () => {
   const [generatingAudio, setGeneratingAudio] = useState(false);
   const [previewingVoice, setPreviewingVoice] = useState(null);
   const [playingPreview, setPlayingPreview] = useState(null);
+  const [showPasteDialog, setShowPasteDialog] = useState(false);
+  const [pastedScript, setPastedScript] = useState("");
+  const [pasting, setPasting] = useState(false);
   const audioRef = useRef(null);
 
   useEffect(() => {
