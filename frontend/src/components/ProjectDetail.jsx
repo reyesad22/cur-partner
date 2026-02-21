@@ -338,48 +338,68 @@ const ProjectDetail = () => {
                 <Sparkles className="w-4 h-4" />
                 AI-Powered Analysis
               </div>
-              <h2 className="text-xl md:text-2xl font-bold mb-2">Upload Your Script</h2>
+              <h2 className="text-xl md:text-2xl font-bold mb-2">Add Your Script</h2>
               <p className="text-muted-foreground text-sm md:text-base">
                 AI will detect characters, emotions, and prepare voice readings
               </p>
             </div>
             
-            <div
-              className="w-full max-w-md mx-auto p-8 rounded-2xl border-2 border-dashed border-border hover:border-purple-500/50 transition cursor-pointer app-card"
-              onClick={() => fileInputRef.current?.click()}
-              data-testid="upload-area"
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf"
-                onChange={handleFileUpload}
-                className="hidden"
-                data-testid="pdf-upload-input"
-              />
-              
-              {uploading ? (
-                <div className="flex flex-col items-center">
-                  <Loader2 className="w-12 h-12 text-purple-400 animate-spin mb-4" />
-                  <p className="text-lg font-medium">
-                    {analyzing ? "AI Analyzing Script..." : "Uploading..."}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Detecting characters & emotions
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center mx-auto mb-4">
-                    <Upload className="w-8 h-8 text-purple-400" />
+            {/* Two options: Upload PDF or Paste Text */}
+            <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
+              {/* Upload PDF */}
+              <div
+                className="flex-1 p-6 rounded-2xl border-2 border-dashed border-border hover:border-purple-500/50 transition cursor-pointer app-card"
+                onClick={() => fileInputRef.current?.click()}
+                data-testid="upload-area"
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  data-testid="pdf-upload-input"
+                />
+                
+                {uploading ? (
+                  <div className="flex flex-col items-center">
+                    <Loader2 className="w-10 h-10 text-purple-400 animate-spin mb-3" />
+                    <p className="font-medium">
+                      {analyzing ? "Analyzing..." : "Uploading..."}
+                    </p>
                   </div>
-                  <h3 className="text-lg font-medium mb-2">Drop PDF Here</h3>
-                  <p className="text-muted-foreground text-sm">
-                    or tap to browse files
-                  </p>
-                </>
-              )}
+                ) : (
+                  <>
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center mx-auto mb-3">
+                      <Upload className="w-6 h-6 text-purple-400" />
+                    </div>
+                    <h3 className="font-medium mb-1">Upload PDF</h3>
+                    <p className="text-muted-foreground text-xs">
+                      Drop or tap to browse
+                    </p>
+                  </>
+                )}
+              </div>
+              
+              {/* Paste Script */}
+              <div
+                className="flex-1 p-6 rounded-2xl border-2 border-dashed border-border hover:border-pink-500/50 transition cursor-pointer app-card"
+                onClick={() => setShowPasteDialog(true)}
+                data-testid="paste-script-btn"
+              >
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500/20 to-purple-500/20 flex items-center justify-center mx-auto mb-3">
+                  <ClipboardPaste className="w-6 h-6 text-pink-400" />
+                </div>
+                <h3 className="font-medium mb-1">Paste Script</h3>
+                <p className="text-muted-foreground text-xs">
+                  Copy & paste text
+                </p>
+              </div>
             </div>
+            
+            <p className="text-xs text-muted-foreground mt-4">
+              Supported format: CHARACTER: dialogue or CHARACTER on its own line
+            </p>
           </div>
         ) : (
           <div className="space-y-6">
