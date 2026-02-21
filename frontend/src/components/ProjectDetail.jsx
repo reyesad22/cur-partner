@@ -636,6 +636,75 @@ const ProjectDetail = () => {
           </div>
         )}
       </main>
+      
+      {/* Paste Script Dialog */}
+      <Dialog open={showPasteDialog} onOpenChange={setShowPasteDialog}>
+        <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardPaste className="w-5 h-5 text-pink-400" />
+              Paste Your Script
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto space-y-4">
+            <div className="bg-secondary/50 rounded-lg p-3 text-xs text-muted-foreground">
+              <p className="font-medium mb-1">Supported formats:</p>
+              <pre className="whitespace-pre-wrap">
+{`CHARACTER: dialogue text
+CHARACTER (V.O.): dialogue text
+
+or
+
+CHARACTER
+dialogue text on next line`}
+              </pre>
+            </div>
+            
+            <Textarea
+              value={pastedScript}
+              onChange={(e) => setPastedScript(e.target.value)}
+              placeholder={`JOHN: Hello Sarah, I've been waiting for you.
+
+SARAH: I know, I'm sorry I'm late. The traffic was terrible.
+
+JOHN: That's okay. I have something important to tell you.`}
+              className="min-h-[250px] font-mono text-sm bg-secondary border-border"
+              data-testid="paste-script-textarea"
+            />
+            
+            <div className="flex gap-3">
+              <Button 
+                variant="ghost" 
+                onClick={() => {
+                  setShowPasteDialog(false);
+                  setPastedScript("");
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handlePasteScript}
+                disabled={pasting || !pastedScript.trim()}
+                className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500"
+                data-testid="submit-paste-btn"
+              >
+                {pasting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Analyze Script
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
