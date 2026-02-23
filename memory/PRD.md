@@ -357,14 +357,6 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 6. After audio ends, automatically advances to next line
 7. Repeat until script is complete
 
-## Pending Tasks
-
-### P2 - Future
-1. **Stripe Integration**: Payment processing for Pro membership
-2. **Backend Refactoring**: Break down monolithic server.py into modules
-3. **PostgreSQL Migration**: Optional migration to Supabase if requested
-4. **Domain Verification**: Verify custom domain in Resend for production emails
-
 ## Update (Feb 23, 2026 - Session 8)
 ### Critical Bug Fix: PDF Upload Silent Failure
 
@@ -413,6 +405,6 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 1. **Stripe Integration**: Payment processing for Pro membership
 
 ### P2 - Future
-2. **Backend Refactoring**: Break down monolithic server.py into modules
-3. **PostgreSQL Migration**: Optional migration to Supabase if requested
-4. **Domain Verification**: Verify custom domain in Resend for production emails
+1. **Backend Refactoring**: Break down monolithic server.py into modules
+2. **PostgreSQL Migration**: Optional migration to Supabase if requested
+3. **Domain Verification**: Verify custom domain in Resend for production emails
