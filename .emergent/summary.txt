@@ -1,0 +1,184 @@
+<analysis>**original_problem_statement:**
+Build a website for CuePartner - a voice-powered cue reader and teleprompter for actors.
+
+**PRODUCT REQUIREMENTS:**
+- **Tech Stack**: React/Next.js frontend, FastAPI backend, PostgreSQL database (Supabase).
+- **Core Features**:
+    - Landing page matching getcuepartner.com design.
+    - User authentication (login/signup).
+    - Dashboard for managing projects.
+    - PDF script upload and parsing.
+    - Voice-tracked teleprompter/reader.
+    - Responsive design for desktop and mobile.
+- **AI-Powered Upgrade (from user conversation)**:
+    - User uploads a script (PDF or pasted text).
+    - User chooses their character.
+    - AI analyzes the script to identify characters, assign gender/age, and detect the emotion for each line.
+    - AI uses an emotional Text-to-Speech (TTS) engine (ElevenLabs) to generate audio for cue lines.
+    - The actor can rehearse, and the AI voice will read the cue lines with the correct emotion, auto-advancing when the actor speaks their lines.
+- **Self-Tape Features**:
+    - Record video takes of performances.
+    - Manage and review takes.
+    - Share takes via a public link and direct email submission.
+    - Membership tiers for cloud storage of videos.
+
+**User's preferred language**: English
+
+**what currently exists?**
+A full-stack web application for actors built with React and FastAPI, using MongoDB for the database. The application integrates with OpenAI for script analysis, ElevenLabs for emotional TTS, Cloudinary for video storage, and Resend for emailing shared takes.
+
+Current features include:
+- User authentication (JWT).
+- A mobile-first, PWA-enabled interface.
+- Script upload via PDF or direct text paste. The PDF parsing is currently unreliable.
+- A Reader (teleprompter) view with voice detection that auto-advances the script, and a UI inspired by the user's Actoncue reference.
+- Self-tape video recording with take management, cloud storage (Cloudinary), and sharing via public link or email (Resend).
+- A Pro membership system (UI only, no payment processing).
+
+**Last working item**:
+The agent was debugging a critical bug where uploading a PDF script fails silently (shows 0 lines and 0 characters), especially on mobile. The agent had just implemented a more robust PDF parsing logic in  but had not finished cleaning up the old, redundant code or fully testing the fix.
+
+- **Last item agent was working**: Fixing the silent PDF script parsing failure. The agent attempted a fix by rewriting the parsing function () and was in the process of deleting the old code.
+- **Status**: IN PROGRESS
+- **Agent Testing Done**: N
+- **Which testing method agent to use?** both. The agent should first complete the code cleanup in . Then, use the backend testing agent to create a test that uploads various PDF formats to the  endpoint to verify the parsing logic. Finally, use the frontend testing agent to simulate a user uploading a PDF on a mobile viewport to ensure the end-to-end flow works.
+- **User Testing Done**: Y (User has confirmed the PDF upload feature is failing).
+
+**All Pending/In progress Issue list**:
+- **Issue 1**: PDF script upload fails silently (P0).
+- **Issue 2**: Platform 403 error during domain linking (P1).
+
+**Issues Detail**:
+- **Issue 1**:
+    - **Description**: When a user uploads a PDF script, the process appears to complete, but the analysis result shows 0 Lines, 0 Characters, blocking the user from proceeding. This happens frequently, especially from mobile devices.
+    - **Attempted fixes**: The agent created a new, more robust parsing function () in  that tries multiple regex patterns. The agent also implemented a Paste Script feature as a workaround. The cleanup of the old parsing code is incomplete.
+    - **Next debug checklist**:
+        1.  **Code Cleanup**: In , find and delete the old, now-redundant PDF parsing logic. The agent was in the middle of a  operation to remove dead code.
+        2.  **Verify Backend Logic**: Restart the backend and ensure it runs without errors after the cleanup.
+        3.  **Test with **: Use  to upload a sample PDF file to the  endpoint and check the backend logs for detailed parsing output and potential errors.
+        4.  **End-to-End Test**: Use the frontend to upload a PDF (ideally one that was previously failing for the user) and verify that the characters and lines are correctly identified.
+    - **Why fix this issue and what will be achieved with the fix?**: PDF upload is a primary way for users to import scripts. Fixing it is essential for a smooth user experience.
+    - **Status**: IN PROGRESS
+    - **Is recurring issue?**: Y
+    - **Should Test frontend/backend/both after fix?**: Both.
+    - **Blocked on other issue**: None.
+- **Issue 2**:
+    - **Description**: The user experiences a 403 Forbidden error when trying to link their custom domain () to the new deployment via the Emergent platform dialog.
+    - **Attempted fixes**: The agent investigated the application's CORS policy extensively, confirming it is not a code issue. The 403 error originates from the Emergent platform itself during the domain transfer action.
+    - **Next debug checklist**: This is a **platform issue**, not a code issue. Do not attempt to fix this by modifying the application code. Advise the user to:
+        1. Try unlinking the domain from the old application first.
+        2. Contact Emergent Support with the job ID and a screenshot of the error if the problem persists.
+    - **Why fix this issue and what will be achieved with the fix?**: This is not an issue the agent can fix. Documenting it prevents wasting time on debugging a non-code problem.
+    - **Status**: BLOCKED (Requires user/platform action)
+    - **Is recurring issue?**: Y
+    - **Should Test frontend/backend/both after fix?**: NA.
+    - **Blocked on other issue**: None.
+
+**In progress Task List**:
+None.
+
+**Upcoming and Future Tasks**
+- **Upcoming Tasks**:
+    - **Stripe Integration for Memberships (P1)**: Integrate Stripe to handle payments for the Pro membership tier. This involves adding backend endpoints for payment processing and updating the frontend UI to handle the subscription flow.
+- **Future Tasks**:
+    - **Refactor Backend (P2)**: Break down the monolithic  into smaller, more manageable modules (e.g., , , ).
+    - **Migrate to Supabase/PostgreSQL (P2)**: The user initially requested a PostgreSQL database. If they request it again, migrate the backend from MongoDB to Supabase/PostgreSQL.
+
+**Completed work in this session**
+- **Bug Fixes**:
+    - **Fixed Generate AI Voices 500 Error**: Resolved a  in  caused by attempting to modify a frozen Pydantic model from the ElevenLabs SDK.
+    - **Fixed Multiple Deployment Errors**: Corrected CORS policies, added a working  endpoint, and removed hardcoded preview URLs to enable successful deployments.
+- **New Features**:
+    - **Direct Submission via Email**: Integrated  to allow users to email a shareable link of their self-tapes directly from the app.
+    - **Save to Phone Feature**: Implemented functionality to download recorded takes.
+    - **Paste Script Feature**: Added a fallback option for users to paste their script as text when PDF upload fails, including a new backend endpoint () and a frontend modal.
+- **UI/UX Enhancements**:
+    - **Reader Redesign**: Completely overhauled the  component UI to match the user's Actoncue reference, including a real-time voice transcript bar, improved status indicators, and a more intuitive control layout.
+    - **Improved PDF Parsing Logic**: Rewrote the backend PDF parsing to be more robust and handle various script formats.
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+- **Frontend**: React, React Router, Tailwind CSS
+- **Backend**: FastAPI, Pydantic
+- **Database**: MongoDB (via user's MongoDB Atlas)
+- **Authentication**: JWT (JSON Web Tokens)
+- **AI Services**:
+    - **Script Analysis**:  library for OpenAI GPT-5.2
+    - **Text-to-Speech**: ElevenLabs API
+- **Storage**: Cloudinary API for video uploads.
+- **Email**: Resend API for transactional emails.
+- **Deployment**: PWA (Progressive Web App) configured.
+
+**key DB schema**
+- **users**: 
+- **projects**: 
+- **takes**: 
+
+**All files of reference**
+- : The monolithic backend file containing all API logic. The primary file for debugging the PDF parsing issue.
+- : Contains the UI for script upload (both PDF and paste) and character selection.
+- : The redesigned teleprompter/rehearsal component.
+- : Handles video recording, take management, and sharing (Download/Email).
+- : Contains all secret keys.
+
+**Areas that need refactoring**:
+-  is over 1500 lines and urgently needs to be broken down into separate routers and services for maintainability.
+- The PDF parsing logic in , while improved, could be extracted into its own service module.
+
+**key api endpoints**
+- 
+- 
+-  (**NEEDS FIXING**)
+-  (**NEW**)
+- 
+- 
+- 
+
+**Critical Info for New Agent**
+- **Top Priority**: Your first task is to fix the silent PDF parsing failure. The previous agent started a refactor in  but didn't finish. You need to complete the code cleanup and then thoroughly test the new parsing logic. The Paste Script feature is a working alternative.
+- **Platform vs. Code Issue**: The user is experiencing a 403 error when trying to link their custom domain. This is a **PLATFORM-LEVEL** issue, not a code problem. Do not waste time debugging CORS or other application code for it. Advise the user to contact Emergent support.
+- **Health Check**: The production deployment health check must be configured to use the  endpoint, as root-level paths are routed to the frontend.
+
+**documents and test reports created in this job**
+-  (Updated)
+- 
+
+**Last 10 User Messages and any pending HUMAN messages**
+1.  ** (with image)**: User reports the PDF upload is failing silently, showing 0 lines/characters.
+2.  ****: User reports the same PDF issue, specifically on mobile.
+3.  ****: User requested the control icons in the Reader view always be visible. (Completed)
+4.  ** (with image)**: User provided a reference (Actoncue) for the desired Reader UX, requesting better voice detection and a visible transcript. (Completed)
+5.  ****: User reports the domain linking error persists. (Identified as platform issue)
+6.  ****: User reported the initial, broader issues with the rehearsal flow and provided reference screenshots. (Largely addressed with Reader redesign).
+7.  ****: User reported deployment failures. (Fixed by addressing health checks and CORS).
+8.  ****: User provided the Resend API key. (Integrated).
+9.  ****: User approved implementing the direct submission and download features. (Completed).
+10. ****: User approved the plan to work on new features after the voice generation bug was fixed.
+
+**Project Health Check:**
+- **Broken**:
+    - **PDF Script Upload**: The feature is unreliable and often fails silently. This is the top priority bug.
+- **Mocked**:
+    - **Membership System**: The UI for Pro features exists, but there is no backend payment integration (Stripe) to handle subscriptions.
+
+**3rd Party Integrations**
+- **OpenAI GPT-5.2**: Script analysis via  — uses Emergent LLM Key.
+- **ElevenLabs**: Emotional Text-to-Speech — requires User API Key.
+- **Cloudinary**: Video cloud storage — requires User API Key.
+- **MongoDB Atlas**: Primary database — requires User Connection String.
+- **Resend**: Transactional email for sharing takes — requires User API Key.
+
+**Testing status**
+- **Testing agent used after significant changes**: YES. The agent was used to validate the Resend and Save to phone features.
+- **Troubleshoot agent used after agent stuck in loop**: NO
+- **Test files created**: None.
+- **Known regressions**: The PDF upload functionality is not working reliably.
+
+**Credentials to test flow:**
+- **Demo user**:  / 
+- All necessary API keys are populated in .
+
+**What agent forgot to execute**
+The previous agent was in the middle of refactoring the PDF parsing logic in . It used  to delete large chunks of old, dead code but the process may be incomplete. The next agent must verify the cleanup is complete and the file is syntactically correct before proceeding with testing.</analysis>
