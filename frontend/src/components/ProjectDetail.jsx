@@ -591,7 +591,18 @@ const ProjectDetail = () => {
 
             {/* Script Preview with Emotions */}
             <div className="feature-card app-card">
-              <h3 className="font-semibold mb-4">Script Preview</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">Script Preview</h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/edit/${id}`)}
+                  data-testid="edit-script-btn"
+                >
+                  <Edit3 className="w-4 h-4 mr-2" />
+                  Edit Script
+                </Button>
+              </div>
               
               {!project.user_character && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 mb-4">
