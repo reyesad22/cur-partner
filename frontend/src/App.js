@@ -13,6 +13,7 @@ import Reader from "@/components/Reader";
 import Recording from "@/components/Recording";
 import Settings from "@/components/Settings";
 import SharedView from "@/components/SharedView";
+import ScriptEditor from "@/components/ScriptEditor";
 import MobileNav from "@/components/MobileNav";
 import { Toaster } from "@/components/ui/sonner";
 
