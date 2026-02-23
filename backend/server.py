@@ -658,7 +658,7 @@ def try_concatenated_format(full_text: str) -> tuple[list, set]:
             # Like: "dialogue.He stands up" - we want "dialogue"
             
             # Split on patterns like ".She " or ".He " or ". As "
-            direction_split = re.split(r'\.(?=[A-Z][a-z]+\s+(?:stands?|walks?|turns?|looks?|nods?|enters?|exits?|moves?|takes?|picks?|puts?|sits?|gets?|goes?|comes?|leaves?|sees?|watches?))', dialogue)
+            direction_split = re.split(r'\.(?=[A-Z][a-z]+\s+(?:stands?|walks?|turns?|looks?|nods?|enters?|exits?|moves?|takes?|picks?|puts?|sits?|gets?|goes?|comes?|leaves?|sees?|watches?|hands?))', dialogue)
             if direction_split:
                 dialogue = direction_split[0]
             
@@ -666,10 +666,18 @@ def try_concatenated_format(full_text: str) -> tuple[list, set]:
             direction_patterns = [
                 r'\.\s*As\s+(?:she|he|they)',
                 r'\.\s*(?:She|He|They)\s+(?:stands?|walks?|turns?|looks?|nods?)',
+                r'\.He\s+hands',
                 r'\s*--\s*$',
             ]
             for dp in direction_patterns:
                 dialogue = re.split(dp, dialogue, flags=re.IGNORECASE)[0]
+            
+            # Remove parenthetical directions like (tilts head)
+            dialogue = re.sub(r'\([^)]+\)', '', dialogue)
+            
+            # Remove character names that appear mid-dialogue (stage direction remnants)
+            dialogue = re.sub(r'DETECTIVE\s+[A-Z]+', '', dialogue)
+            dialogue = re.sub(r'Prod\.\s*#\d+.*$', '', dialogue)
             
             dialogue = dialogue.strip()
             dialogue = re.sub(r'^[\s\-\.]+', '', dialogue)
