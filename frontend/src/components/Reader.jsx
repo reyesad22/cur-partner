@@ -464,7 +464,7 @@ const Reader = () => {
                   key={line.id}
                   ref={el => lineRefs.current[idx] = el}
                   className={`
-                    p-4 rounded-xl transition-all duration-300 cursor-pointer
+                    p-4 rounded-xl transition-all duration-300 cursor-pointer select-none
                     ${isActive 
                       ? isUserLine 
                         ? 'bg-purple-500/20 border-2 border-purple-500 scale-[1.02]' 
@@ -475,7 +475,14 @@ const Reader = () => {
                     }
                   `}
                   style={{ fontSize: isActive ? fontSize : fontSize * 0.8 }}
-                  onClick={() => setCurrentLineIndex(idx)}
+                  onClick={() => {
+                    if (isActive) {
+                      // If clicking the current active line, advance to next
+                      handleNextLine();
+                    } else {
+                      setCurrentLineIndex(idx);
+                    }
+                  }}
                   data-testid={`reader-line-${idx}`}
                 >
                   <p className={`text-xs mb-2 font-medium ${
