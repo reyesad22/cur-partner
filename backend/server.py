@@ -317,7 +317,9 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="Invalid token")
 
 def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
-    """Parse PDF script and extract scenes with dialogue."""
+    """Parse PDF script and extract scenes with dialogue.
+    Tries multiple parsing strategies to handle different PDF formats.
+    """
     reader = PdfReader(io.BytesIO(pdf_content))
     full_text = ""
     for page in reader.pages:
@@ -326,33 +328,242 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
             full_text += page_text + "\n"
     
     logging.info(f"PDF extracted text length: {len(full_text)}")
-    logging.info(f"First 500 chars: {full_text[:500]}")
+    if full_text:
+        logging.info(f"First 500 chars: {full_text[:500]}")
     
     if not full_text.strip():
         logging.error("PDF extraction returned empty text")
-        raise ValueError("Could not extract text from PDF. The PDF might be image-based or encrypted.")
+        raise ValueError("Could not extract text from PDF. The PDF might be image-based or encrypted. Try using 'Paste Script' instead.")
     
+    # Try multiple parsing strategies
+    lines_data, characters = try_standard_screenplay_format(full_text)
+    
+    if not lines_data:
+        logging.info("Standard format failed, trying colon format")
+        lines_data, characters = try_colon_format(full_text)
+    
+    if not lines_data:
+        logging.info("Colon format failed, trying all-caps detection")
+        lines_data, characters = try_uppercase_character_detection(full_text)
+    
+    logging.info(f"Final result: {len(lines_data)} lines, {len(characters)} characters: {characters}")
+    
+    if not lines_data:
+        logging.warning("No dialogue found with any parsing strategy")
+        # Return empty but don't fail - let user see the issue
+    
+    scene = Scene(
+        id=str(uuid.uuid4()),
+        name="Main Scene",
+        lines=[Line(**l) for l in lines_data]
+    )
+    
+    return [scene], list(characters)
+
+def try_standard_screenplay_format(full_text: str) -> tuple[list, set]:
+    """Parse standard screenplay format where character name is on its own line in CAPS."""
     lines_data = []
     characters = set()
     current_character = None
     line_number = 0
     current_dialogue = []
     
-    # Pattern for character names - more flexible
-    # Matches: JOHN, SARAH (V.O.), DR. SMITH, MRS. JONES, DETECTIVE VAZIRI
     character_pattern = re.compile(r'^([A-Z][A-Z\s\-\'\.]+?)(?:\s*\([^)]*\))?\s*$')
-    
-    # Also try to match character names followed by colon
-    # Matches: JOHN: or John:
-    colon_pattern = re.compile(r'^([A-Za-z][A-Za-z\s\-\'\.]+?):\s*(.*)$')
-    
-    # Scene/action markers to skip
     skip_words = {'INT', 'EXT', 'FADE', 'CUT', 'SCENE', 'ACT', 'END', 'CONTINUED', 'CONT', 
                   'THE END', 'MORE', 'DISSOLVE', 'SMASH', 'INTERCUT', 'FLASHBACK', 
-                  'BACK TO', 'ANGLE', 'CLOSE', 'WIDE', 'POV', 'INSERT', 'SUPER', 'TITLE',
-                  'V.O.', 'O.S.', 'O.C.', 'CONT\'D'}
+                  'BACK TO', 'ANGLE', 'CLOSE', 'WIDE', 'POV', 'INSERT', 'SUPER', 'TITLE'}
     
     text_lines = full_text.split('\n')
+    
+    for stripped in [l.strip() for l in text_lines]:
+        if not stripped:
+            if current_character and current_dialogue:
+                dialogue_text = ' '.join(current_dialogue).strip()
+                if dialogue_text and len(dialogue_text) > 1:
+                    line_number += 1
+                    lines_data.append({
+                        "id": str(uuid.uuid4()),
+                        "character": current_character,
+                        "text": dialogue_text,
+                        "line_number": line_number,
+                        "is_user_line": False,
+                        "emotion": None,
+                        "audio_url": None
+                    })
+                current_dialogue = []
+            continue
+        
+        char_match = character_pattern.match(stripped)
+        if char_match and len(stripped) < 50 and stripped.isupper():
+            potential_char = char_match.group(1).strip()
+            if not any(sw in potential_char for sw in skip_words):
+                if current_character and current_dialogue:
+                    dialogue_text = ' '.join(current_dialogue).strip()
+                    if dialogue_text and len(dialogue_text) > 1:
+                        line_number += 1
+                        lines_data.append({
+                            "id": str(uuid.uuid4()),
+                            "character": current_character,
+                            "text": dialogue_text,
+                            "line_number": line_number,
+                            "is_user_line": False,
+                            "emotion": None,
+                            "audio_url": None
+                        })
+                    current_dialogue = []
+                
+                current_character = potential_char.title()
+                characters.add(current_character)
+                continue
+        
+        if current_character:
+            if stripped.startswith('(') and stripped.endswith(')'):
+                continue
+            if stripped.isdigit() or len(stripped) < 2:
+                continue
+            current_dialogue.append(stripped)
+    
+    # Save remaining
+    if current_character and current_dialogue:
+        dialogue_text = ' '.join(current_dialogue).strip()
+        if dialogue_text and len(dialogue_text) > 1:
+            line_number += 1
+            lines_data.append({
+                "id": str(uuid.uuid4()),
+                "character": current_character,
+                "text": dialogue_text,
+                "line_number": line_number,
+                "is_user_line": False,
+                "emotion": None,
+                "audio_url": None
+            })
+    
+    return lines_data, characters
+
+def try_colon_format(full_text: str) -> tuple[list, set]:
+    """Parse format where character name is followed by colon: 'CHARACTER: dialogue'"""
+    lines_data = []
+    characters = set()
+    line_number = 0
+    
+    # Match "CHARACTER:" or "Character:" at start of line
+    colon_pattern = re.compile(r'^([A-Za-z][A-Za-z\s\-\'\.]{0,30}):\s*(.+)$')
+    skip_words = {'INT', 'EXT', 'FADE', 'CUT', 'SCENE', 'NOTE', 'TITLE'}
+    
+    for line in full_text.split('\n'):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        
+        match = colon_pattern.match(stripped)
+        if match:
+            char_name = match.group(1).strip()
+            dialogue = match.group(2).strip()
+            
+            # Skip technical directions
+            if char_name.upper() in skip_words:
+                continue
+            if not dialogue or len(dialogue) < 2:
+                continue
+            
+            line_number += 1
+            char_title = char_name.title()
+            characters.add(char_title)
+            
+            lines_data.append({
+                "id": str(uuid.uuid4()),
+                "character": char_title,
+                "text": dialogue,
+                "line_number": line_number,
+                "is_user_line": False,
+                "emotion": None,
+                "audio_url": None
+            })
+    
+    return lines_data, characters
+
+def try_uppercase_character_detection(full_text: str) -> tuple[list, set]:
+    """Last resort: Find any ALL CAPS words that might be character names."""
+    lines_data = []
+    characters = set()
+    current_character = None
+    line_number = 0
+    current_dialogue = []
+    
+    # Find words that are all caps and could be names
+    name_pattern = re.compile(r'^([A-Z]{2,}(?:\s+[A-Z]{2,})*)(?:\s*\([^)]*\))?$')
+    skip_words = {'THE', 'AND', 'INT', 'EXT', 'FADE', 'CUT', 'TO', 'FROM', 'DAY', 'NIGHT',
+                  'MORNING', 'EVENING', 'LATER', 'CONTINUOUS', 'SCENE', 'ACT', 'END'}
+    
+    for line in full_text.split('\n'):
+        stripped = line.strip()
+        
+        if not stripped:
+            if current_character and current_dialogue:
+                dialogue_text = ' '.join(current_dialogue).strip()
+                if dialogue_text and len(dialogue_text) > 3:
+                    line_number += 1
+                    lines_data.append({
+                        "id": str(uuid.uuid4()),
+                        "character": current_character,
+                        "text": dialogue_text,
+                        "line_number": line_number,
+                        "is_user_line": False,
+                        "emotion": None,
+                        "audio_url": None
+                    })
+                current_dialogue = []
+            continue
+        
+        # Check if this line is a potential character name
+        name_match = name_pattern.match(stripped)
+        if name_match and len(stripped) < 40:
+            potential = name_match.group(1)
+            # Skip common non-name uppercase words
+            if potential not in skip_words and not any(sw in potential for sw in skip_words):
+                if current_character and current_dialogue:
+                    dialogue_text = ' '.join(current_dialogue).strip()
+                    if dialogue_text and len(dialogue_text) > 3:
+                        line_number += 1
+                        lines_data.append({
+                            "id": str(uuid.uuid4()),
+                            "character": current_character,
+                            "text": dialogue_text,
+                            "line_number": line_number,
+                            "is_user_line": False,
+                            "emotion": None,
+                            "audio_url": None
+                        })
+                    current_dialogue = []
+                
+                current_character = potential.title()
+                characters.add(current_character)
+                continue
+        
+        # Accumulate dialogue
+        if current_character:
+            if stripped.startswith('(') and stripped.endswith(')'):
+                continue
+            if stripped.isdigit():
+                continue
+            current_dialogue.append(stripped)
+    
+    # Save remaining
+    if current_character and current_dialogue:
+        dialogue_text = ' '.join(current_dialogue).strip()
+        if dialogue_text and len(dialogue_text) > 3:
+            line_number += 1
+            lines_data.append({
+                "id": str(uuid.uuid4()),
+                "character": current_character,
+                "text": dialogue_text,
+                "line_number": line_number,
+                "is_user_line": False,
+                "emotion": None,
+                "audio_url": None
+            })
+    
+    return lines_data, characters
     
     for i, line in enumerate(text_lines):
         stripped = line.strip()
