@@ -1,19 +1,25 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="11" time="44.615" timestamp="2026-02-23T19:15:59.319638+00:00" hostname="agent-env-72524dec-a429-47b9-85e7-c491a2d2c71b"><testcase classname="tests.test_pdf_upload.TestPDFUpload" name="test_upload_screenplay_format_pdf" time="1.363"><failure message="TypeError: string argument without an encoding">tests/test_pdf_upload.py:136: in test_upload_screenplay_format_pdf
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="11" time="45.590" timestamp="2026-02-23T19:17:21.446640+00:00" hostname="agent-env-72524dec-a429-47b9-85e7-c491a2d2c71b"><testcase classname="tests.test_pdf_upload.TestPDFUpload" name="test_upload_screenplay_format_pdf" time="1.274"><failure message="TypeError: FPDF.cell() got an unexpected keyword argument 'new_x'">tests/test_pdf_upload.py:135: in test_upload_screenplay_format_pdf
     pdf_content = self.create_screenplay_pdf()
                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_pdf_upload.py:88: in create_screenplay_pdf
-    return bytes(pdf.output())
-           ^^^^^^^^^^^^^^^^^^^
-E   TypeError: string argument without an encoding</failure></testcase><testcase classname="tests.test_pdf_upload.TestPDFUpload" name="test_upload_colon_format_pdf" time="1.230"><failure message="TypeError: string argument without an encoding">tests/test_pdf_upload.py:165: in test_upload_colon_format_pdf
+tests/test_pdf_upload.py:85: in create_screenplay_pdf
+    pdf.cell(0, 10, txt=line, new_x="LMARGIN", new_y="NEXT")
+/root/.venv/lib/python3.11/site-packages/fpdf/fpdf.py:150: in wrapper
+    return fn(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: FPDF.cell() got an unexpected keyword argument 'new_x'</failure></testcase><testcase classname="tests.test_pdf_upload.TestPDFUpload" name="test_upload_colon_format_pdf" time="1.113"><failure message="TypeError: FPDF.cell() got an unexpected keyword argument 'new_x'">tests/test_pdf_upload.py:164: in test_upload_colon_format_pdf
     pdf_content = self.create_colon_format_pdf()
                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_pdf_upload.py:113: in create_colon_format_pdf
-    return bytes(pdf.output())
-           ^^^^^^^^^^^^^^^^^^^
-E   TypeError: string argument without an encoding</failure></testcase><testcase classname="tests.test_pdf_upload.TestPDFUpload" name="test_upload_no_dialogue_pdf_returns_error" time="0.918"><failure message="TypeError: string argument without an encoding">tests/test_pdf_upload.py:191: in test_upload_no_dialogue_pdf_returns_error
+tests/test_pdf_upload.py:110: in create_colon_format_pdf
+    pdf.cell(0, 10, txt=line, new_x="LMARGIN", new_y="NEXT")
+/root/.venv/lib/python3.11/site-packages/fpdf/fpdf.py:150: in wrapper
+    return fn(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: FPDF.cell() got an unexpected keyword argument 'new_x'</failure></testcase><testcase classname="tests.test_pdf_upload.TestPDFUpload" name="test_upload_no_dialogue_pdf_returns_error" time="0.838"><failure message="TypeError: FPDF.cell() got an unexpected keyword argument 'new_x'">tests/test_pdf_upload.py:190: in test_upload_no_dialogue_pdf_returns_error
     pdf_content = self.create_no_dialogue_pdf()
                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_pdf_upload.py:132: in create_no_dialogue_pdf
-    return bytes(pdf.output())
-           ^^^^^^^^^^^^^^^^^^^
-E   TypeError: string argument without an encoding</failure></testcase><testcase classname="tests.test_pdf_upload.TestPDFUpload" name="test_upload_non_pdf_rejected" time="1.397" /><testcase classname="tests.test_pdf_upload.TestPasteScript" name="test_paste_colon_format_script" time="9.813" /><testcase classname="tests.test_pdf_upload.TestPasteScript" name="test_paste_screenplay_format_script" time="7.917" /><testcase classname="tests.test_pdf_upload.TestPasteScript" name="test_paste_empty_script_rejected" time="1.019" /><testcase classname="tests.test_pdf_upload.TestPasteScript" name="test_paste_no_dialogue_script_rejected" time="1.054" /><testcase classname="tests.test_pdf_upload.TestCharacterSelection" name="test_set_user_character" time="6.653" /><testcase classname="tests.test_pdf_upload.TestCharacterSelection" name="test_set_invalid_character_rejected" time="6.085" /><testcase classname="tests.test_pdf_upload.TestProjectFlow" name="test_complete_project_creation_flow" time="7.027" /></testsuite></testsuites>
+tests/test_pdf_upload.py:129: in create_no_dialogue_pdf
+    pdf.cell(0, 10, txt=line, new_x="LMARGIN", new_y="NEXT")
+/root/.venv/lib/python3.11/site-packages/fpdf/fpdf.py:150: in wrapper
+    return fn(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: FPDF.cell() got an unexpected keyword argument 'new_x'</failure></testcase><testcase classname="tests.test_pdf_upload.TestPDFUpload" name="test_upload_non_pdf_rejected" time="1.205" /><testcase classname="tests.test_pdf_upload.TestPasteScript" name="test_paste_colon_format_script" time="10.067" /><testcase classname="tests.test_pdf_upload.TestPasteScript" name="test_paste_screenplay_format_script" time="7.607" /><testcase classname="tests.test_pdf_upload.TestPasteScript" name="test_paste_empty_script_rejected" time="1.259" /><testcase classname="tests.test_pdf_upload.TestPasteScript" name="test_paste_no_dialogue_script_rejected" time="1.113" /><testcase classname="tests.test_pdf_upload.TestCharacterSelection" name="test_set_user_character" time="6.972" /><testcase classname="tests.test_pdf_upload.TestCharacterSelection" name="test_set_invalid_character_rejected" time="6.330" /><testcase classname="tests.test_pdf_upload.TestProjectFlow" name="test_complete_project_creation_flow" time="7.599" /></testsuite></testsuites>
