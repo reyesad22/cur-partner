@@ -571,6 +571,90 @@ def try_uppercase_character_detection(full_text: str) -> tuple[list, set]:
     
     return lines_data, characters
 
+
+def try_concatenated_format(full_text: str) -> tuple[list, set]:
+    """Parse format where text is concatenated without proper line breaks.
+    Handles cases like: 'BRUNOYou really think we can get enough on him?BENSONChuck O'Neill is...'
+    """
+    lines_data = []
+    characters = set()
+    line_number = 0
+    
+    # Common character name patterns - typically 2-15 uppercase letters
+    # Look for ALL CAPS words that are likely names followed by dialogue
+    skip_words = {'THE', 'AND', 'INT', 'EXT', 'FADE', 'CUT', 'TO', 'FROM', 'DAY', 'NIGHT',
+                  'MORNING', 'EVENING', 'LATER', 'CONTINUOUS', 'SCENE', 'ACT', 'END',
+                  'CONTINUED', 'CONT', 'MORE', 'ANGLE', 'CLOSE', 'WIDE', 'POV', 'INSERT',
+                  'SUPER', 'TITLE', 'SMASH', 'DISSOLVE', 'FLASHBACK', 'INTERCUT', 'VO', 'OS',
+                  'PRE', 'POST', 'PROD', 'CONCEPT', 'DRAFT', 'REVISED', 'FINAL'}
+    
+    # Pattern: Find ALL CAPS word(s) immediately followed by lowercase/mixed case text
+    # This catches "BRUNOYou really think..." -> BRUNO + "You really think..."
+    pattern = re.compile(r'([A-Z]{2,}(?:\s+[A-Z]{2,})?)([A-Z][a-z].*?)(?=[A-Z]{2,}[A-Z][a-z]|$)', re.DOTALL)
+    
+    # Also try a simpler pattern for single word names
+    simple_pattern = re.compile(r'\b([A-Z]{3,15})\s*([A-Z][a-z][^A-Z]*?)(?=\b[A-Z]{3,15}\s*[A-Z][a-z]|$)', re.DOTALL)
+    
+    # First, try to normalize the text by adding line breaks before character names
+    normalized = full_text
+    
+    # Find potential character names (2+ uppercase letters followed by uppercase then lowercase)
+    potential_names = re.findall(r'([A-Z]{2,15})(?=[A-Z][a-z])', normalized)
+    name_counts = {}
+    for name in potential_names:
+        if name not in skip_words and len(name) >= 3:
+            name_counts[name] = name_counts.get(name, 0) + 1
+    
+    # Character names typically appear multiple times
+    likely_characters = {name for name, count in name_counts.items() if count >= 2}
+    
+    logging.info(f"Concatenated format - potential characters: {likely_characters}")
+    
+    if not likely_characters:
+        # Fallback: try names that appear at least once
+        likely_characters = {name for name, count in name_counts.items() if count >= 1 and len(name) >= 4}
+    
+    if likely_characters:
+        # Build a pattern to split on character names
+        char_pattern = '|'.join(re.escape(c) for c in sorted(likely_characters, key=len, reverse=True))
+        split_pattern = re.compile(f'({char_pattern})(?=[A-Z][a-z])')
+        
+        # Split the text at character names
+        parts = split_pattern.split(normalized)
+        
+        current_char = None
+        for i, part in enumerate(parts):
+            part = part.strip()
+            if not part:
+                continue
+            
+            if part in likely_characters:
+                current_char = part.title()
+                characters.add(current_char)
+            elif current_char:
+                # This is dialogue for the current character
+                # Clean up the dialogue - remove page numbers, scene headers, etc.
+                dialogue = re.sub(r'\d+\s*$', '', part).strip()
+                dialogue = re.sub(r'^[\d\s]+', '', dialogue).strip()
+                
+                # Remove common non-dialogue text
+                if dialogue and len(dialogue) > 10:
+                    # Skip if it looks like a stage direction
+                    if not dialogue.startswith('(') and not dialogue.endswith(')'):
+                        line_number += 1
+                        lines_data.append({
+                            "id": str(uuid.uuid4()),
+                            "character": current_char,
+                            "text": dialogue[:500],  # Limit dialogue length
+                            "line_number": line_number,
+                            "is_user_line": False,
+                            "emotion": None,
+                            "audio_url": None
+                        })
+    
+    return lines_data, characters
+
+
 def parse_script_text(script_text: str) -> tuple[List[Scene], List[str]]:
     """Parse pasted script text and extract scenes with dialogue.
     Supports formats like:
