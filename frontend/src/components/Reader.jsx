@@ -198,46 +198,73 @@ const Reader = () => {
   const fuzzyMatch = (spoken, target) => {
     if (!spoken || !target) return false;
     
-    // Clean both strings
+    // Clean both strings - remove punctuation and normalize
     const cleanSpoken = spoken.replace(/[^\w\s]/g, '').trim().toLowerCase();
     const cleanTarget = target.replace(/[^\w\s]/g, '').trim().toLowerCase();
     
-    // If spoken text is too short, wait for more
-    if (cleanSpoken.length < 5) return false;
+    // If spoken text is very short, wait for more
+    if (cleanSpoken.length < 3) return false;
     
-    // Direct substring check - if spoken contains significant part of target
-    if (cleanTarget.includes(cleanSpoken) && cleanSpoken.length > 8) return true;
-    if (cleanSpoken.includes(cleanTarget.substring(0, Math.min(20, cleanTarget.length)))) return true;
-    
-    // Get words
+    // EASY MODE: Check for any significant word matches
     const spokenWords = cleanSpoken.split(/\s+/).filter(w => w.length > 2);
     const targetWords = cleanTarget.split(/\s+/).filter(w => w.length > 2);
     
-    if (spokenWords.length === 0 || targetWords.length === 0) return false;
+    if (spokenWords.length === 0) return false;
     
-    // Count matching words
-    let matchCount = 0;
-    for (const spokenWord of spokenWords) {
-      for (const targetWord of targetWords) {
-        // Check if words match or are very similar
+    // Count how many target words appear in spoken text
+    let matchedWords = 0;
+    let importantWordMatched = false;
+    
+    for (const targetWord of targetWords) {
+      // Skip common words
+      if (['the', 'and', 'but', 'for', 'are', 'was', 'were', 'been', 'being', 'have', 'has', 'had', 'will', 'would', 'could', 'should', 'can', 'may', 'might', 'must', 'shall', 'that', 'this', 'with', 'from', 'they', 'them', 'their', 'what', 'when', 'where', 'which', 'who', 'whom', 'whose', 'how', 'why'].includes(targetWord)) {
+        continue;
+      }
+      
+      for (const spokenWord of spokenWords) {
+        // Exact match
         if (targetWord === spokenWord) {
-          matchCount++;
+          matchedWords++;
+          if (targetWord.length >= 4) importantWordMatched = true;
           break;
         }
-        if (targetWord.includes(spokenWord) || spokenWord.includes(targetWord)) {
-          if (Math.min(spokenWord.length, targetWord.length) >= 3) {
-            matchCount++;
+        // Partial match - word starts with same letters
+        if (targetWord.length >= 4 && spokenWord.length >= 3) {
+          if (targetWord.startsWith(spokenWord.substring(0, 3)) || 
+              spokenWord.startsWith(targetWord.substring(0, 3))) {
+            matchedWords++;
+            break;
+          }
+        }
+        // Contains match
+        if (targetWord.length >= 5 && spokenWord.length >= 5) {
+          if (targetWord.includes(spokenWord) || spokenWord.includes(targetWord)) {
+            matchedWords++;
             break;
           }
         }
       }
     }
     
-    // Calculate match ratio
-    const matchRatio = matchCount / Math.min(spokenWords.length, targetWords.length);
+    // VERY EASY MATCHING:
+    // Just need 1 important word (4+ letters) to match
+    // OR 2 any words to match
+    // OR the spoken text is very similar overall
     
-    // Need at least 30% word match OR 2 matching words
-    return matchRatio >= 0.3 || matchCount >= 2;
+    if (importantWordMatched) return true;
+    if (matchedWords >= 2) return true;
+    
+    // Also check if first few words match (common for actors to start correctly)
+    if (spokenWords.length >= 1 && targetWords.length >= 1) {
+      const firstSpoken = spokenWords[0];
+      const firstTarget = targetWords[0];
+      if (firstSpoken === firstTarget || 
+          (firstSpoken.length >= 3 && firstTarget.startsWith(firstSpoken.substring(0, 3)))) {
+        return true;
+      }
+    }
+    
+    return false;
   };
 
   const handleNextLine = () => {
