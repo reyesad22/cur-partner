@@ -678,6 +678,10 @@ def try_concatenated_format(full_text: str) -> tuple[list, set]:
             # Remove character names that appear mid-dialogue (stage direction remnants)
             dialogue = re.sub(r'DETECTIVE\s+[A-Z]+', '', dialogue)
             dialogue = re.sub(r'Prod\.\s*#\d+.*$', '', dialogue)
+            dialogue = re.sub(r'\d{6}\s*-\s*Fe.*$', '', dialogue)  # Remove timestamps/footers
+            
+            # Clean up "Back of the squad car" type fragments
+            dialogue = re.sub(r'ack of the.*$', '', dialogue)  # Partial text fragments
             
             dialogue = dialogue.strip()
             dialogue = re.sub(r'^[\s\-\.]+', '', dialogue)
@@ -685,8 +689,8 @@ def try_concatenated_format(full_text: str) -> tuple[list, set]:
             
             # Only add if we have meaningful dialogue
             if dialogue and len(dialogue) >= 5:
-                # Skip if it's clearly stage direction
-                if not dialogue.lower().startswith(('she ', 'he ', 'they ', 'as ', 'the ', 'a ')):
+                # Skip if it's clearly stage direction or garbage
+                if not dialogue.lower().startswith(('she ', 'he ', 'they ', 'as ', 'the ', 'a ', 'prod')):
                     line_number += 1
                     lines_data.append({
                         "id": str(uuid.uuid4()),
