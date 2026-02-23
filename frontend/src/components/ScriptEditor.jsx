@@ -206,7 +206,7 @@ const ScriptEditor = () => {
       toast.info("Generating AI voices for updated script...");
       
       try {
-        const voiceResponse = await api.post(`/projects/${id}/generate-voices`);
+        const voiceResponse = await api.post(`/projects/${id}/generate-all-audio`);
         setProject(voiceResponse.data);
         
         // Update lines with new audio URLs
