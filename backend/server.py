@@ -1137,6 +1137,85 @@ async def delete_project(project_id: str, current_user: dict = Depends(get_curre
     
     return {"message": "Project deleted"}
 
+# ============== SCRIPT EDITOR ==============
+
+class ScriptLine(BaseModel):
+    id: Optional[str] = None
+    character: str
+    text: str
+    line_number: int
+    is_user_line: bool = False
+    emotion: Optional[str] = None
+    audio_url: Optional[str] = None
+    parenthetical: Optional[str] = None
+
+class UpdateScriptRequest(BaseModel):
+    lines: List[ScriptLine]
+    characters: List[str]
+
+@api_router.put("/projects/{project_id}/script", response_model=ProjectResponse)
+async def update_script(
+    project_id: str,
+    request: UpdateScriptRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update script lines and characters - used by the script editor"""
+    project = await db.projects.find_one({"id": project_id, "user_id": current_user["id"]})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Convert lines to scene structure
+    lines_data = []
+    for line in request.lines:
+        line_dict = {
+            "id": line.id or str(uuid.uuid4()),
+            "character": line.character,
+            "text": line.text,
+            "line_number": line.line_number,
+            "is_user_line": line.character == project.get("user_character"),
+            "emotion": line.emotion,
+            "audio_url": None,  # Clear audio - will need regeneration
+            "parenthetical": line.parenthetical
+        }
+        lines_data.append(line_dict)
+    
+    # Create single scene with all lines
+    scene = {
+        "id": str(uuid.uuid4()),
+        "name": "Main Scene",
+        "lines": lines_data
+    }
+    
+    # Update character analysis if characters changed
+    existing_analysis = project.get("character_analysis", [])
+    updated_analysis = []
+    for char in request.characters:
+        # Keep existing analysis if available
+        existing = next((a for a in existing_analysis if a.get("name") == char), None)
+        if existing:
+            updated_analysis.append(existing)
+        else:
+            # Add placeholder for new characters
+            updated_analysis.append({
+                "name": char,
+                "voice_id": None,
+                "gender": "unknown",
+                "age": "adult",
+                "description": f"Character {char}"
+            })
+    
+    update_data = {
+        "scenes": [scene],
+        "characters": request.characters,
+        "character_analysis": updated_analysis,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.projects.update_one({"id": project_id}, {"$set": update_data})
+    
+    updated = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    return ProjectResponse(**updated)
+
 # ============== PDF UPLOAD WITH AI ANALYSIS ==============
 
 @api_router.post("/projects/{project_id}/upload-pdf", response_model=ProjectResponse)
