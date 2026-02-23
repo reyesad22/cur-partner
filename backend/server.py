@@ -574,83 +574,121 @@ def try_uppercase_character_detection(full_text: str) -> tuple[list, set]:
 
 def try_concatenated_format(full_text: str) -> tuple[list, set]:
     """Parse format where text is concatenated without proper line breaks.
-    Handles cases like: 'BRUNOYou really think we can get enough on him?BENSONChuck O'Neill is...'
+    Handles screenplay PDFs where character names run into dialogue like:
+    'BRUNOYou really think we can...BENSONChuck O'Neill is a predator...'
     """
     lines_data = []
     characters = set()
     line_number = 0
     
-    # Common character name patterns - typically 2-15 uppercase letters
-    # Look for ALL CAPS words that are likely names followed by dialogue
+    # Words to skip - not character names
     skip_words = {'THE', 'AND', 'INT', 'EXT', 'FADE', 'CUT', 'TO', 'FROM', 'DAY', 'NIGHT',
                   'MORNING', 'EVENING', 'LATER', 'CONTINUOUS', 'SCENE', 'ACT', 'END',
                   'CONTINUED', 'CONT', 'MORE', 'ANGLE', 'CLOSE', 'WIDE', 'POV', 'INSERT',
                   'SUPER', 'TITLE', 'SMASH', 'DISSOLVE', 'FLASHBACK', 'INTERCUT', 'VO', 'OS',
-                  'PRE', 'POST', 'PROD', 'CONCEPT', 'DRAFT', 'REVISED', 'FINAL'}
+                  'PRE', 'POST', 'PROD', 'CONCEPT', 'DRAFT', 'REVISED', 'FINAL', 'FULL',
+                  'CRIME', 'YELLOW', 'LIGHTS', 'BODY', 'DEAD', 'BACK', 'SEES', 'BEAT',
+                  'SHE', 'HE', 'THEY', 'THEIR', 'THIS', 'THAT', 'WITH', 'WHAT', 'WHEN',
+                  'WHERE', 'WHO', 'WHY', 'HOW', 'WHICH', 'SOME', 'LIKE', 'JUST', 'OVER'}
     
-    # Pattern: Find ALL CAPS word(s) immediately followed by lowercase/mixed case text
-    # This catches "BRUNOYou really think..." -> BRUNO + "You really think..."
-    pattern = re.compile(r'([A-Z]{2,}(?:\s+[A-Z]{2,})?)([A-Z][a-z].*?)(?=[A-Z]{2,}[A-Z][a-z]|$)', re.DOTALL)
+    # Find ALL potential character names in the text
+    # Pattern: ALL CAPS word (3+ letters) immediately followed by capital then lowercase
+    # This catches: BRUNOYou, BENSONChuck, ROLLINSIt's, VAZIRIBack, etc.
+    name_pattern = re.compile(r'([A-Z]{3,20})(?=[A-Z][a-z])')
     
-    # Also try a simpler pattern for single word names
-    simple_pattern = re.compile(r'\b([A-Z]{3,15})\s*([A-Z][a-z][^A-Z]*?)(?=\b[A-Z]{3,15}\s*[A-Z][a-z]|$)', re.DOTALL)
-    
-    # First, try to normalize the text by adding line breaks before character names
-    normalized = full_text
-    
-    # Find potential character names (2+ uppercase letters followed by uppercase then lowercase)
-    potential_names = re.findall(r'([A-Z]{2,15})(?=[A-Z][a-z])', normalized)
+    all_potential_names = name_pattern.findall(full_text)
     name_counts = {}
-    for name in potential_names:
-        if name not in skip_words and len(name) >= 3:
-            name_counts[name] = name_counts.get(name, 0) + 1
+    for name in all_potential_names:
+        # Clean the name - remove trailing numbers
+        clean_name = re.sub(r'\d+$', '', name)
+        if clean_name and clean_name not in skip_words and len(clean_name) >= 3:
+            name_counts[clean_name] = name_counts.get(clean_name, 0) + 1
     
-    # Character names typically appear multiple times
-    likely_characters = {name for name, count in name_counts.items() if count >= 2}
+    logging.info(f"Concatenated format - all potential names: {name_counts}")
     
-    logging.info(f"Concatenated format - potential characters: {likely_characters}")
+    # Accept names that appear at least once (since some characters only speak once)
+    likely_characters = {name for name, count in name_counts.items() if count >= 1}
+    
+    # Also look for "DETECTIVE X" or "OFFICER X" patterns
+    title_pattern = re.compile(r'(DETECTIVE|OFFICER|CAPTAIN|SERGEANT|AGENT)\s*([A-Z]{3,15})')
+    for match in title_pattern.finditer(full_text):
+        title_name = match.group(2)
+        if title_name not in skip_words:
+            likely_characters.add(title_name)
+            # Also add the full title+name
+            full_name = f"{match.group(1)} {match.group(2)}"
+            likely_characters.add(full_name.replace(" ", ""))
+    
+    logging.info(f"Concatenated format - accepted characters: {likely_characters}")
     
     if not likely_characters:
-        # Fallback: try names that appear at least once
-        likely_characters = {name for name, count in name_counts.items() if count >= 1 and len(name) >= 4}
+        return lines_data, characters
     
-    if likely_characters:
-        # Build a pattern to split on character names
-        char_pattern = '|'.join(re.escape(c) for c in sorted(likely_characters, key=len, reverse=True))
-        split_pattern = re.compile(f'({char_pattern})(?=[A-Z][a-z])')
+    # Sort by length (longest first) to match "DETECTIVE VAZIRI" before "VAZIRI"
+    sorted_chars = sorted(likely_characters, key=len, reverse=True)
+    
+    # Build regex pattern to split on character names followed by dialogue
+    char_pattern = '|'.join(re.escape(c) for c in sorted_chars)
+    split_pattern = re.compile(f'({char_pattern})(?=[A-Z][a-z])')
+    
+    # Split the text
+    parts = split_pattern.split(full_text)
+    
+    current_char = None
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
         
-        # Split the text at character names
-        parts = split_pattern.split(normalized)
-        
-        current_char = None
-        for i, part in enumerate(parts):
-            part = part.strip()
-            if not part:
-                continue
+        # Check if this part is a character name
+        if part in likely_characters:
+            current_char = part.title()
+            characters.add(current_char)
+        elif current_char:
+            # This is dialogue - extract just the spoken part
+            dialogue = part
             
-            if part in likely_characters:
-                current_char = part.title()
-                characters.add(current_char)
-            elif current_char:
-                # This is dialogue for the current character
-                # Clean up the dialogue - remove page numbers, scene headers, etc.
-                dialogue = re.sub(r'\d+\s*$', '', part).strip()
-                dialogue = re.sub(r'^[\d\s]+', '', dialogue).strip()
-                
-                # Remove common non-dialogue text
-                if dialogue and len(dialogue) > 10:
-                    # Skip if it looks like a stage direction
-                    if not dialogue.startswith('(') and not dialogue.endswith(')'):
-                        line_number += 1
-                        lines_data.append({
-                            "id": str(uuid.uuid4()),
-                            "character": current_char,
-                            "text": dialogue[:500],  # Limit dialogue length
-                            "line_number": line_number,
-                            "is_user_line": False,
-                            "emotion": None,
-                            "audio_url": None
-                        })
+            # Remove page numbers and headers
+            dialogue = re.sub(r'CONTINUED\d*', '', dialogue)
+            dialogue = re.sub(r'^\d+\s*', '', dialogue)
+            dialogue = re.sub(r'\d+$', '', dialogue)
+            
+            # Try to extract just the dialogue before stage directions
+            # Stage directions often start with lowercase after a period
+            # Like: "dialogue.He stands up" - we want "dialogue"
+            
+            # Split on patterns like ".She " or ".He " or ". As "
+            direction_split = re.split(r'\.(?=[A-Z][a-z]+\s+(?:stands?|walks?|turns?|looks?|nods?|enters?|exits?|moves?|takes?|picks?|puts?|sits?|gets?|goes?|comes?|leaves?|sees?|watches?))', dialogue)
+            if direction_split:
+                dialogue = direction_split[0]
+            
+            # Also split on common stage direction starters
+            direction_patterns = [
+                r'\.\s*As\s+(?:she|he|they)',
+                r'\.\s*(?:She|He|They)\s+(?:stands?|walks?|turns?|looks?|nods?)',
+                r'\s*--\s*$',
+            ]
+            for dp in direction_patterns:
+                dialogue = re.split(dp, dialogue, flags=re.IGNORECASE)[0]
+            
+            dialogue = dialogue.strip()
+            dialogue = re.sub(r'^[\s\-\.]+', '', dialogue)
+            dialogue = re.sub(r'[\s\-\.]+$', '', dialogue)
+            
+            # Only add if we have meaningful dialogue
+            if dialogue and len(dialogue) >= 5:
+                # Skip if it's clearly stage direction
+                if not dialogue.lower().startswith(('she ', 'he ', 'they ', 'as ', 'the ', 'a ')):
+                    line_number += 1
+                    lines_data.append({
+                        "id": str(uuid.uuid4()),
+                        "character": current_char,
+                        "text": dialogue[:500],
+                        "line_number": line_number,
+                        "is_user_line": False,
+                        "emotion": None,
+                        "audio_url": None
+                    })
     
     return lines_data, characters
 
