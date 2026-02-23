@@ -358,32 +358,33 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 7. Repeat until script is complete
 
 ## Update (Feb 23, 2026 - Session 8)
-### Critical Bug Fix: PDF Upload & Voice Recognition
+### Features Added: Script Editor & Voice Fixes
 
-**Issues Fixed:**
+**New Script Editor (like Actoncue):**
+- Full edit mode at `/edit/{project_id}`
+- Edit character names and dialogue text
+- Change line type: Dialogue, Parenthetical, Stage Direction
+- Add new lines with + button
+- Delete lines with trash button  
+- Reorder lines with up/down arrows
+- Add new characters
+- Play audio preview for each line
+- **Auto-generate voices on save**
+- Shows line count and character count
 
-1. **PDF Upload Parsing (Fixed)**
-   - Added new `try_concatenated_format()` parser for PDFs without line breaks
-   - Handles character names that appear only once
-   - Cleans out stage directions, watermarks, timestamps
-   - Tested with DET._VAZIRI.pdf: 8 lines, 5 characters detected correctly
+**Voice Generation Fixes:**
+- Fixed generate-all-audio endpoint to return updated project
+- Voices auto-generate when saving from script editor
+- Parentheticals affect voice delivery (e.g., "(sighs heavily)" affects tone)
 
-2. **CORS for Production Deployment (Fixed)**
-   - Changed `CORS_ORIGINS="*"` to allow all origins
-   - This was blocking production domain getcuepartner.com
+**Backend Endpoints Added:**
+- `PUT /api/projects/{id}/script` - Update script lines and characters
 
-3. **Voice Recognition Improved**
-   - Made word matching much more forgiving
-   - Now matches on: 1 important word (4+ letters) OR 2 any words OR first word matches
-   - Added "tap to advance" - users can tap current line to move forward
-   - Reduces frustration when voice detection isn't perfect
-
-**Testing:**
-- PDF parsing: Verified with user's actual script
-- Reader: Controls and navigation working
-- Preview URL working: actor-teleprompter.preview.emergentagent.com
-
-**Status:** ✅ FIXED - User needs to Deploy for production
+**Files Changed:**
+- New: `/app/frontend/src/components/ScriptEditor.jsx`
+- Modified: `/app/frontend/src/App.js` - Added route
+- Modified: `/app/frontend/src/components/ProjectDetail.jsx` - Added Edit button
+- Modified: `/app/backend/server.py` - Added script update endpoint
 
 ## Known Issues
 - **Membership System**: UI-only, no payment integration (MOCKED)
