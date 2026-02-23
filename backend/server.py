@@ -346,6 +346,10 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
         logging.info("Colon format failed, trying all-caps detection")
         lines_data, characters = try_uppercase_character_detection(full_text)
     
+    if not lines_data:
+        logging.info("All-caps failed, trying concatenated format (no line breaks)")
+        lines_data, characters = try_concatenated_format(full_text)
+    
     logging.info(f"Final result: {len(lines_data)} lines, {len(characters)} characters: {characters}")
     
     if not lines_data:
