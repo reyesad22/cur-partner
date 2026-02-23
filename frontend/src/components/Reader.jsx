@@ -549,14 +549,14 @@ const Reader = () => {
               <div className="flex items-center justify-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-green-500 animate-pulse' : 'bg-purple-500'}`} />
                 <p className="text-sm font-medium text-purple-400">
-                  {isListening ? "Listening - speak your line" : "Your turn - tap mic to start"}
+                  {isListening ? "Listening - speak your line" : "Your turn - tap mic or tap line to advance"}
                 </p>
               </div>
             ) : (
               <div className="flex items-center justify-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${audioRef.current && !audioRef.current.paused ? 'bg-pink-500 animate-pulse' : 'bg-muted-foreground'}`} />
                 <p className="text-sm text-muted-foreground">
-                  {currentLine?.character}'s line - {audioRef.current && !audioRef.current.paused ? "Playing..." : "will auto-play"}
+                  {currentLine?.character}'s line - {audioRef.current && !audioRef.current.paused ? "Playing..." : "tap to play or wait"}
                 </p>
               </div>
             )}
