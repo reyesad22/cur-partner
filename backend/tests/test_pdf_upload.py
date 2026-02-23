@@ -7,7 +7,6 @@ import requests
 import os
 from fpdf import FPDF
 import io
-import base64
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
