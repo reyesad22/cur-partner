@@ -158,6 +158,14 @@ function App() {
               }
             />
             <Route
+              path="/edit/:id"
+              element={
+                <ProtectedRoute>
+                  <ScriptEditor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/reader/:id"
               element={
                 <ProtectedRoute>
