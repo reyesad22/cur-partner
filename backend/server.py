@@ -350,7 +350,9 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
     
     if not lines_data:
         logging.warning("No dialogue found with any parsing strategy")
-        # Return empty but don't fail - let user see the issue
+        # Provide helpful error with extracted text preview for debugging
+        text_preview = full_text[:200].replace('\n', ' ')
+        raise ValueError(f"Could not detect dialogue in PDF. The format might not be recognized. Try 'Paste Script' instead. Preview: '{text_preview}...'")
     
     scene = Scene(
         id=str(uuid.uuid4()),
