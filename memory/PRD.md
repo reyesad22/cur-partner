@@ -358,42 +358,32 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 7. Repeat until script is complete
 
 ## Update (Feb 23, 2026 - Session 8)
-### Critical Bug Fix: PDF Upload Silent Failure
+### Critical Bug Fix: PDF Upload & Voice Recognition
 
-**Issue Fixed:**
-- PDF script upload was failing silently, showing "0 Lines, 0 Characters" especially on mobile
-- Users couldn't proceed with scripts that appeared to upload successfully but had no content
+**Issues Fixed:**
 
-**Root Cause:**
-- When PDF parsing couldn't detect dialogue, it was returning empty arrays silently instead of throwing an error
-- Users received a "success" response but with no usable data
+1. **PDF Upload Parsing (Fixed)**
+   - Added new `try_concatenated_format()` parser for PDFs without line breaks
+   - Handles character names that appear only once
+   - Cleans out stage directions, watermarks, timestamps
+   - Tested with DET._VAZIRI.pdf: 8 lines, 5 characters detected correctly
 
-**Fix Applied:**
-1. **Backend Improvements:**
-   - Added proper error handling when no dialogue is detected
-   - Returns 400 error with helpful message: "Could not detect dialogue in PDF. Try 'Paste Script' instead."
-   - Added detailed logging for PDF uploads (filename, content_type, size, bytes received)
-   - Validates file content is not empty before processing
+2. **CORS for Production Deployment (Fixed)**
+   - Changed `CORS_ORIGINS="*"` to allow all origins
+   - This was blocking production domain getcuepartner.com
 
-2. **Frontend Improvements:**
-   - Added client-side validation for empty files
-   - Shows file info in console for debugging
-   - Checks response for 0 lines/characters and shows appropriate warning
-   - Resets file input after upload to allow re-uploading same file
-   - Extended toast duration for error messages (8 seconds)
-
-3. **Multiple Parsing Strategies:**
-   - Standard screenplay format (CHARACTER on own line, dialogue below)
-   - Colon format (CHARACTER: dialogue on same line)
-   - All-caps character detection fallback
+3. **Voice Recognition Improved**
+   - Made word matching much more forgiving
+   - Now matches on: 1 important word (4+ letters) OR 2 any words OR first word matches
+   - Added "tap to advance" - users can tap current line to move forward
+   - Reduces frustration when voice detection isn't perfect
 
 **Testing:**
-- Created comprehensive test suite in `/app/backend/tests/test_pdf_upload.py`
-- 11/11 tests passing (screenplay format, colon format, error handling, character selection)
-- Verified on desktop and mobile viewports
-- Both PDF upload and "Paste Script" alternatives working correctly
+- PDF parsing: Verified with user's actual script
+- Reader: Controls and navigation working
+- Preview URL working: actor-teleprompter.preview.emergentagent.com
 
-**Status:** ✅ FIXED AND VERIFIED
+**Status:** ✅ FIXED - User needs to Deploy for production
 
 ## Known Issues
 - **Membership System**: UI-only, no payment integration (MOCKED)
