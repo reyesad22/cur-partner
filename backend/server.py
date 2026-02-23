@@ -1010,10 +1010,20 @@ async def upload_pdf(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
+    # Log upload details for debugging mobile issues
+    logging.info(f"PDF Upload - filename: {file.filename}, content_type: {file.content_type}, size: {file.size}")
+    
     if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
     
     content = await file.read()
+    
+    # Validate content was received
+    if not content or len(content) == 0:
+        logging.error("PDF upload received empty content")
+        raise HTTPException(status_code=400, detail="Upload failed: empty file received. Please try again.")
+    
+    logging.info(f"PDF content received: {len(content)} bytes")
     
     try:
         scenes, characters = parse_script_pdf(content)
