@@ -82,9 +82,9 @@ class TestPDFUpload:
         ]
         
         for line in lines:
-            pdf.cell(0, 10, txt=line, ln=True)
+            pdf.cell(0, 10, txt=line, new_x="LMARGIN", new_y="NEXT")
         
-        return bytes(pdf.output())
+        return pdf.output()
 
     def create_colon_format_pdf(self) -> bytes:
         """Create a colon-format script PDF (CHARACTER: dialogue)"""
@@ -107,9 +107,9 @@ class TestPDFUpload:
         ]
         
         for line in lines:
-            pdf.cell(0, 10, txt=line, ln=True)
+            pdf.cell(0, 10, txt=line, new_x="LMARGIN", new_y="NEXT")
         
-        return bytes(pdf.output())
+        return pdf.output()
 
     def create_no_dialogue_pdf(self) -> bytes:
         """Create a PDF with no recognizable dialogue format"""
@@ -126,9 +126,9 @@ class TestPDFUpload:
         ]
         
         for line in lines:
-            pdf.cell(0, 10, txt=line, ln=True)
+            pdf.cell(0, 10, txt=line, new_x="LMARGIN", new_y="NEXT")
         
-        return bytes(pdf.output())
+        return pdf.output()
 
     def test_upload_screenplay_format_pdf(self):
         """Test uploading a standard screenplay format PDF - should detect characters and lines"""
