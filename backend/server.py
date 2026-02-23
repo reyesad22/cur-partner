@@ -677,11 +677,12 @@ def try_concatenated_format(full_text: str) -> tuple[list, set]:
             
             # Remove character names that appear mid-dialogue (stage direction remnants)
             dialogue = re.sub(r'DETECTIVE\s+[A-Z]+', '', dialogue)
-            dialogue = re.sub(r'Prod\.\s*#\d+.*$', '', dialogue)
-            dialogue = re.sub(r'\d{6}\s*-\s*Fe.*$', '', dialogue)  # Remove timestamps/footers
             
-            # Clean up "Back of the squad car" type fragments
-            dialogue = re.sub(r'ack of the.*$', '', dialogue)  # Partial text fragments
+            # Remove watermarks, timestamps, production numbers
+            dialogue = re.sub(r'Prod\.\s*#\d+.*', '', dialogue, flags=re.DOTALL)
+            dialogue = re.sub(r'\d{6}\s*-\s*.*', '', dialogue, flags=re.DOTALL)  # Timestamps
+            dialogue = re.sub(r'ack of the squad.*', '', dialogue, flags=re.DOTALL)  # Partial fragments
+            dialogue = re.sub(r'Pre-Concept.*', '', dialogue, flags=re.DOTALL)
             
             dialogue = dialogue.strip()
             dialogue = re.sub(r'^[\s\-\.]+', '', dialogue)
