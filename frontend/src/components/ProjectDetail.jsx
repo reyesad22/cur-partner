@@ -32,7 +32,8 @@ import {
   Zap,
   Pause,
   Video,
-  ClipboardPaste
+  ClipboardPaste,
+  Edit3
 } from "lucide-react";
 import { toast } from "sonner";
 
