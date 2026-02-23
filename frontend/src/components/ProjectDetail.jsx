@@ -74,11 +74,28 @@ const ProjectDetail = () => {
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      toast.error("No file selected. Please try again.");
+      return;
+    }
+
+    // Log file info for debugging
+    console.log("File upload:", { name: file.name, type: file.type, size: file.size });
 
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       toast.error("Please upload a PDF file");
       return;
+    }
+
+    // Validate file has content
+    if (file.size === 0) {
+      toast.error("File appears to be empty. Please select a valid PDF.");
+      return;
+    }
+
+    // Warn about large files
+    if (file.size > 10 * 1024 * 1024) {
+      toast.warning("Large file detected. Upload may take longer.");
     }
 
     setUploading(true);
@@ -92,18 +109,35 @@ const ProjectDetail = () => {
         headers: { "Content-Type": "multipart/form-data" },
         timeout: 120000 // 2 minute timeout for AI analysis
       });
+      
+      // Check if parsing found anything
+      const totalLines = response.data.scenes?.reduce((sum, s) => sum + (s.lines?.length || 0), 0) || 0;
+      const totalChars = response.data.characters?.length || 0;
+      
+      if (totalLines === 0 || totalChars === 0) {
+        toast.error("PDF uploaded but no dialogue detected. Try 'Paste Script' for better results.");
+        setProject(response.data);
+        return;
+      }
+      
       setProject(response.data);
       
       if (response.data.ai_analyzed) {
-        toast.success("Script analyzed! AI detected characters and emotions.");
+        toast.success(`Script analyzed! Found ${totalChars} characters and ${totalLines} lines.`);
       } else {
-        toast.success("Script uploaded! (AI analysis unavailable)");
+        toast.success(`Script uploaded! Found ${totalChars} characters. (AI analysis unavailable)`);
       }
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to upload PDF. Try pasting your script instead.");
+      console.error("PDF upload error:", error);
+      const errorMsg = error.response?.data?.detail || "Failed to upload PDF. Try pasting your script instead.";
+      toast.error(errorMsg, { duration: 8000 });
     } finally {
       setUploading(false);
       setAnalyzing(false);
+      // Reset input to allow re-uploading same file
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
