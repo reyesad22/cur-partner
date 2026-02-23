@@ -1521,11 +1521,9 @@ async def generate_all_cue_audio(
         {"$set": {"scenes": project["scenes"], "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
     
-    return {
-        "message": f"Generated audio for {generated_count} lines",
-        "generated_count": generated_count,
-        "errors": errors if errors else None
-    }
+    # Return updated project
+    updated = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    return ProjectResponse(**updated)
 
 # ============== TAKES MANAGEMENT ==============
 
