@@ -13,7 +13,7 @@ import time
 import asyncio
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict
 import uuid
 from datetime import datetime, timezone, timedelta
 import jwt
@@ -1644,6 +1644,148 @@ async def generate_all_cue_audio(
     # Return updated project
     updated = await db.projects.find_one({"id": project_id}, {"_id": 0})
     return ProjectResponse(**updated)
+
+
+# ============== VOICE PREVIEW & MANUAL SELECTION ==============
+
+class VoicePreviewRequest(BaseModel):
+    voice_id: str
+    text: str
+
+class VoiceConfigItem(BaseModel):
+    voice_id: str
+    gender: str
+    age_group: str
+
+class ManualVoiceRequest(BaseModel):
+    voice_config: Dict[str, VoiceConfigItem]
+
+@api_router.post("/voice-preview")
+async def preview_voice(
+    request: VoicePreviewRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Generate a voice preview for the given voice ID and text."""
+    try:
+        audio_generator = eleven_client.text_to_speech.convert(
+            text=request.text[:200],  # Limit preview length
+            voice_id=request.voice_id,
+            model_id="eleven_multilingual_v2",
+            voice_settings=VoiceSettings(stability=0.5, similarity_boost=0.75, style=0.5, use_speaker_boost=True)
+        )
+        
+        audio_data = b""
+        for chunk in audio_generator:
+            audio_data += chunk
+        
+        audio_b64 = base64.b64encode(audio_data).decode()
+        return {"audio_url": f"data:audio/mpeg;base64,{audio_b64}"}
+        
+    except Exception as e:
+        logging.error(f"Voice preview error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate preview: {str(e)}")
+
+
+@api_router.post("/projects/{project_id}/generate-voices-manual", response_model=ProjectResponse)
+async def generate_voices_manual(
+    project_id: str,
+    request: ManualVoiceRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Generate voices using manual voice selections."""
+    project = await db.projects.find_one({"id": project_id, "user_id": current_user["id"]})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    generated_count = 0
+    errors = []
+    
+    # Update character analysis with manual selections
+    character_analysis = project.get("character_analysis", [])
+    for char_name, config in request.voice_config.items():
+        # Find or create character analysis entry
+        found = False
+        for ca in character_analysis:
+            if ca["name"] == char_name:
+                ca["voice_id"] = config.voice_id
+                ca["gender"] = config.gender
+                ca["age_group"] = config.age_group
+                found = True
+                break
+        
+        if not found:
+            character_analysis.append({
+                "name": char_name,
+                "voice_id": config.voice_id,
+                "gender": config.gender,
+                "age_group": config.age_group,
+                "description": f"Manual voice selection for {char_name}"
+            })
+    
+    # Generate audio for each line
+    for scene in project.get("scenes", []):
+        for line in scene.get("lines", []):
+            # Skip user lines
+            if line.get("is_user_line"):
+                continue
+            
+            # Get voice ID from manual config or character analysis
+            char_name = line["character"]
+            voice_id = None
+            
+            # Check manual config first
+            if char_name in request.voice_config:
+                voice_id = request.voice_config[char_name].voice_id
+            else:
+                # Fall back to character analysis
+                for ca in character_analysis:
+                    if ca["name"] == char_name:
+                        voice_id = ca.get("voice_id")
+                        break
+            
+            if not voice_id:
+                # Use default voice
+                voice_id = "21m00Tcm4TlvDq8ikWAM"  # Rachel
+            
+            # Get emotion settings
+            emotion = LineEmotion(**line["emotion"]) if line.get("emotion") else None
+            voice_settings = get_voice_settings_for_emotion(emotion)
+            
+            try:
+                audio_generator = eleven_client.text_to_speech.convert(
+                    text=line["text"],
+                    voice_id=voice_id,
+                    model_id="eleven_multilingual_v2",
+                    voice_settings=voice_settings
+                )
+                
+                audio_data = b""
+                for chunk in audio_generator:
+                    audio_data += chunk
+                
+                audio_b64 = base64.b64encode(audio_data).decode()
+                line["audio_url"] = f"data:audio/mpeg;base64,{audio_b64}"
+                generated_count += 1
+                
+            except Exception as e:
+                logging.error(f"Voice generation error for {char_name}: {e}")
+                errors.append(f"{char_name}: {str(e)}")
+    
+    # Save updated project
+    await db.projects.update_one(
+        {"id": project_id},
+        {"$set": {
+            "scenes": project["scenes"],
+            "character_analysis": character_analysis,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    logging.info(f"Manual voice generation: {generated_count} lines, {len(errors)} errors")
+    
+    updated = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    return ProjectResponse(**updated)
+
 
 # ============== TAKES MANAGEMENT ==============
 

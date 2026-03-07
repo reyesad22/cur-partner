@@ -33,9 +33,11 @@ import {
   Pause,
   Video,
   ClipboardPaste,
-  Edit3
+  Edit3,
+  Settings
 } from "lucide-react";
 import { toast } from "sonner";
+import VoiceSelector from "./VoiceSelector";
 
 const ProjectDetail = () => {
   const { id } = useParams();
@@ -54,6 +56,7 @@ const ProjectDetail = () => {
   const [showPasteDialog, setShowPasteDialog] = useState(false);
   const [pastedScript, setPastedScript] = useState("");
   const [pasting, setPasting] = useState(false);
+  const [showVoiceSelector, setShowVoiceSelector] = useState(false);
   const audioRef = useRef(null);
 
   useEffect(() => {
@@ -565,27 +568,32 @@ const ProjectDetail = () => {
                 </div>
                 
                 <p className="text-sm text-muted-foreground mb-4">
-                  Generate emotional AI voices for all cue lines. The AI will read with the right feeling - angry, sad, screaming, etc.
+                  Generate emotional AI voices for all cue lines. Choose between AI auto-selection or manually pick voices for each character.
                 </p>
                 
-                <Button
-                  onClick={handleGenerateAllAudio}
-                  disabled={generatingAudio}
-                  className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 app-btn"
-                  data-testid="generate-audio-btn"
-                >
-                  {generatingAudio ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Generating Voices...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-4 h-4 mr-2" />
-                      Generate AI Voices
-                    </>
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setShowVoiceSelector(true)}
+                    className="flex-1 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 app-btn"
+                    data-testid="voice-settings-btn"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Voice Settings
+                  </Button>
+                  
+                  <Button
+                    onClick={handleGenerateAllAudio}
+                    disabled={generatingAudio}
+                    variant="outline"
+                    data-testid="generate-audio-btn"
+                  >
+                    {generatingAudio ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Zap className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -751,6 +759,16 @@ JOHN: That's okay. I have something important to tell you.`}
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Voice Selector Dialog */}
+      <VoiceSelector
+        isOpen={showVoiceSelector}
+        onClose={() => setShowVoiceSelector(false)}
+        characters={project?.characters?.filter(c => c !== project?.user_character) || []}
+        characterAnalysis={project?.character_analysis || []}
+        projectId={id}
+        onVoicesUpdated={(updatedProject) => setProject(updatedProject)}
+      />
     </div>
   );
 };
