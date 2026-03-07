@@ -316,7 +316,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
+async def parse_script_pdf_async(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
     """Parse PDF script and extract scenes with dialogue.
     Uses AI for robust parsing when regex methods fail.
     """
@@ -337,8 +337,8 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
     
     # Try AI-powered parsing first for best results
     try:
-        lines_data, characters = parse_script_with_ai(full_text)
-        if lines_data:
+        lines_data, characters = await parse_script_with_ai_async(full_text)
+        if lines_data and len(lines_data) > 0:
             logging.info(f"AI parsing succeeded: {len(lines_data)} lines, {len(characters)} characters")
             scene = Scene(
                 id=str(uuid.uuid4()),
@@ -346,6 +346,8 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
                 lines=[Line(**l) for l in lines_data]
             )
             return [scene], list(characters)
+        else:
+            logging.warning("AI parsing returned empty results, falling back to regex methods")
     except Exception as e:
         logging.warning(f"AI parsing failed: {e}, falling back to regex methods")
     
@@ -385,10 +387,13 @@ async def parse_script_with_ai_async(script_text: str) -> tuple[list, set]:
     # Use the correct import path from emergentintegrations
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     
+    logging.info(f"Starting AI parsing with text length: {len(script_text)}")
+    
     # Truncate if too long
     max_chars = 15000
     if len(script_text) > max_chars:
         script_text = script_text[:max_chars]
+        logging.info(f"Truncated text to {max_chars} characters")
     
     system_message = """You are a script parser. Your job is to analyze screenplay/script text and extract dialogue lines with their characters. You MUST return only valid JSON with no other text."""
     
@@ -419,8 +424,10 @@ Important:
 
     api_key = os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
+        logging.error("EMERGENT_LLM_KEY not configured")
         raise ValueError("EMERGENT_LLM_KEY not configured")
     
+    logging.info("Calling GPT-5.2 for script parsing...")
     session_id = f"script-parse-{uuid.uuid4()}"
     chat = LlmChat(api_key=api_key, session_id=session_id, system_message=system_message)
     chat = chat.with_model("openai", "gpt-5.2")
@@ -428,6 +435,8 @@ Important:
     # Create proper UserMessage object
     user_message = UserMessage(text=prompt)
     response = await chat.send_message(user_message)
+    
+    logging.info(f"Received AI response, length: {len(response) if response else 0}")
     
     # Parse the JSON response
     import json
@@ -465,26 +474,6 @@ Important:
     
     return lines_data, characters
 
-
-def parse_script_with_ai(script_text: str) -> tuple[list, set]:
-    """Sync wrapper for AI parsing."""
-    import asyncio
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # We're in an async context, create a new task
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run, 
-                    parse_script_with_ai_async(script_text)
-                )
-                return future.result(timeout=60)
-        else:
-            return loop.run_until_complete(parse_script_with_ai_async(script_text))
-    except Exception as e:
-        logging.error(f"AI parsing error: {e}")
-        raise
 
 def try_standard_screenplay_format(full_text: str) -> tuple[list, set]:
     """Parse standard screenplay format where character name is on its own line in CAPS."""
@@ -1364,10 +1353,18 @@ async def upload_pdf(
     logging.info(f"PDF content received: {len(content)} bytes")
     
     try:
-        scenes, characters = parse_script_pdf(content)
+        scenes, characters = await parse_script_pdf_async(content)
     except Exception as e:
         logging.error(f"PDF parsing error: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to parse PDF: {str(e)}")
+    
+    # Validate we got actual content
+    total_lines = sum(len(scene.lines) for scene in scenes)
+    if total_lines == 0:
+        raise HTTPException(
+            status_code=400, 
+            detail="Could not detect any dialogue in the PDF. Please check the format or try 'Paste Script' instead."
+        )
     
     # Run AI analysis
     try:
@@ -1395,6 +1392,81 @@ async def upload_pdf(
     
     updated = await db.projects.find_one({"id": project_id}, {"_id": 0})
     return ProjectResponse(**updated)
+
+# ============== DEBUG ENDPOINT ==============
+
+@api_router.post("/debug/parse-pdf")
+async def debug_parse_pdf(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Debug endpoint to test PDF parsing without saving to a project."""
+    content = await file.read()
+    
+    result = {
+        "filename": file.filename,
+        "size_bytes": len(content),
+        "extracted_text": "",
+        "ai_parsing_attempted": False,
+        "ai_parsing_success": False,
+        "ai_error": None,
+        "regex_parsing_attempted": False,
+        "characters_found": [],
+        "lines_found": 0,
+        "text_preview": ""
+    }
+    
+    try:
+        # Extract text from PDF
+        reader = PdfReader(io.BytesIO(content))
+        full_text = ""
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                full_text += page_text + "\n"
+        
+        result["extracted_text_length"] = len(full_text)
+        result["text_preview"] = full_text[:500] if full_text else ""
+        
+        if not full_text.strip():
+            result["error"] = "PDF text extraction returned empty. PDF might be image-based."
+            return result
+        
+        # Try AI parsing
+        result["ai_parsing_attempted"] = True
+        try:
+            lines_data, characters = await parse_script_with_ai_async(full_text)
+            if lines_data:
+                result["ai_parsing_success"] = True
+                result["characters_found"] = list(characters)
+                result["lines_found"] = len(lines_data)
+                return result
+            else:
+                result["ai_error"] = "AI returned empty results"
+        except Exception as e:
+            result["ai_error"] = str(e)
+        
+        # Try regex parsing
+        result["regex_parsing_attempted"] = True
+        lines_data, characters = try_standard_screenplay_format(full_text)
+        
+        if not lines_data:
+            lines_data, characters = try_colon_format(full_text)
+        if not lines_data:
+            lines_data, characters = try_uppercase_character_detection(full_text)
+        if not lines_data:
+            lines_data, characters = try_concatenated_format(full_text)
+        
+        result["characters_found"] = list(characters)
+        result["lines_found"] = len(lines_data)
+        
+        if not lines_data:
+            result["error"] = "No dialogue detected with any parsing method"
+        
+    except Exception as e:
+        result["error"] = str(e)
+    
+    return result
 
 @api_router.post("/projects/{project_id}/paste-script", response_model=ProjectResponse)
 async def paste_script(

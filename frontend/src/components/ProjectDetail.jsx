@@ -441,11 +441,24 @@ const ProjectDetail = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* AI Analysis Badge */}
-            {project.ai_analyzed && (
+            {/* AI Analysis Badge or Warning */}
+            {project.ai_analyzed && getTotalLines() > 0 && (
               <div className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 border border-green-500/20">
                 <Sparkles className="w-5 h-5 text-green-400" />
                 <span className="text-sm text-green-400">AI Analysis Complete</span>
+              </div>
+            )}
+            
+            {/* Warning if no lines detected */}
+            {getTotalLines() === 0 && (
+              <div className="flex flex-col gap-2 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-yellow-400" />
+                  <span className="text-sm text-yellow-400 font-medium">No dialogue detected</span>
+                </div>
+                <p className="text-xs text-gray-400">
+                  The script parser couldn't find any dialogue. Try uploading a different PDF or use "Paste Script" to enter your script manually.
+                </p>
               </div>
             )}
 
