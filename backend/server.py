@@ -25,9 +25,8 @@ import cloudinary.utils
 import cloudinary.uploader
 import resend
 
-# Better PDF extraction libraries
+# pdfplumber for better PDF extraction (pure Python, no C dependencies)
 import pdfplumber
-import fitz  # PyMuPDF
 
 # AI Integrations
 from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -328,37 +327,20 @@ async def parse_script_pdf_async(pdf_content: bytes) -> tuple[List[Scene], List[
     full_text = ""
     extraction_method = "none"
     
-    # Method 1: Try PyMuPDF (fitz) first - best for most PDFs
+    # Method 1: Try pdfplumber first - pure Python, handles most PDFs well
     try:
-        doc = fitz.open(stream=pdf_content, filetype="pdf")
-        for page in doc:
-            text = page.get_text()
-            if text:
-                full_text += text + "\n"
-        doc.close()
+        with pdfplumber.open(io.BytesIO(pdf_content)) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text()
+                if text:
+                    full_text += text + "\n"
         if full_text.strip():
-            extraction_method = "pymupdf"
-            logging.info(f"PyMuPDF extracted {len(full_text)} chars")
+            extraction_method = "pdfplumber"
+            logging.info(f"pdfplumber extracted {len(full_text)} chars")
     except Exception as e:
-        logging.warning(f"PyMuPDF extraction failed: {e}")
+        logging.warning(f"pdfplumber extraction failed: {e}")
     
-    # Method 2: Try pdfplumber if PyMuPDF didn't work well
-    if len(full_text.strip()) < 50:
-        try:
-            with pdfplumber.open(io.BytesIO(pdf_content)) as pdf:
-                plumber_text = ""
-                for page in pdf.pages:
-                    text = page.extract_text()
-                    if text:
-                        plumber_text += text + "\n"
-                if len(plumber_text) > len(full_text):
-                    full_text = plumber_text
-                    extraction_method = "pdfplumber"
-                    logging.info(f"pdfplumber extracted {len(full_text)} chars")
-        except Exception as e:
-            logging.warning(f"pdfplumber extraction failed: {e}")
-    
-    # Method 3: Fall back to PyPDF2
+    # Method 2: Fall back to PyPDF2 if pdfplumber didn't work well
     if len(full_text.strip()) < 50:
         try:
             reader = PdfReader(io.BytesIO(pdf_content))
@@ -1467,35 +1449,19 @@ async def debug_parse_pdf(
     full_text = ""
     
     try:
-        # Method 1: PyMuPDF
+        # Method 1: pdfplumber (pure Python, most reliable)
         try:
-            doc = fitz.open(stream=content, filetype="pdf")
-            for page in doc:
-                text = page.get_text()
-                if text:
-                    full_text += text + "\n"
-            doc.close()
+            with pdfplumber.open(io.BytesIO(content)) as pdf:
+                for page in pdf.pages:
+                    text = page.extract_text()
+                    if text:
+                        full_text += text + "\n"
             if full_text.strip():
-                result["extraction_method"] = "pymupdf"
+                result["extraction_method"] = "pdfplumber"
         except Exception as e:
-            result["pymupdf_error"] = str(e)
+            result["pdfplumber_error"] = str(e)
         
-        # Method 2: pdfplumber
-        if len(full_text.strip()) < 50:
-            try:
-                with pdfplumber.open(io.BytesIO(content)) as pdf:
-                    plumber_text = ""
-                    for page in pdf.pages:
-                        text = page.extract_text()
-                        if text:
-                            plumber_text += text + "\n"
-                    if len(plumber_text) > len(full_text):
-                        full_text = plumber_text
-                        result["extraction_method"] = "pdfplumber"
-            except Exception as e:
-                result["pdfplumber_error"] = str(e)
-        
-        # Method 3: PyPDF2
+        # Method 2: PyPDF2 fallback
         if len(full_text.strip()) < 50:
             try:
                 reader = PdfReader(io.BytesIO(content))
