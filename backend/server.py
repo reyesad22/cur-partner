@@ -25,6 +25,10 @@ import cloudinary.utils
 import cloudinary.uploader
 import resend
 
+# Better PDF extraction libraries
+import pdfplumber
+import fitz  # PyMuPDF
+
 # AI Integrations
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 from elevenlabs import ElevenLabs
@@ -318,22 +322,65 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 async def parse_script_pdf_async(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
     """Parse PDF script and extract scenes with dialogue.
+    Uses multiple PDF extraction methods for maximum compatibility.
     Uses AI for robust parsing when regex methods fail.
     """
-    reader = PdfReader(io.BytesIO(pdf_content))
     full_text = ""
-    for page in reader.pages:
-        page_text = page.extract_text()
-        if page_text:
-            full_text += page_text + "\n"
+    extraction_method = "none"
     
-    logging.info(f"PDF extracted text length: {len(full_text)}")
+    # Method 1: Try PyMuPDF (fitz) first - best for most PDFs
+    try:
+        doc = fitz.open(stream=pdf_content, filetype="pdf")
+        for page in doc:
+            text = page.get_text()
+            if text:
+                full_text += text + "\n"
+        doc.close()
+        if full_text.strip():
+            extraction_method = "pymupdf"
+            logging.info(f"PyMuPDF extracted {len(full_text)} chars")
+    except Exception as e:
+        logging.warning(f"PyMuPDF extraction failed: {e}")
+    
+    # Method 2: Try pdfplumber if PyMuPDF didn't work well
+    if len(full_text.strip()) < 50:
+        try:
+            with pdfplumber.open(io.BytesIO(pdf_content)) as pdf:
+                plumber_text = ""
+                for page in pdf.pages:
+                    text = page.extract_text()
+                    if text:
+                        plumber_text += text + "\n"
+                if len(plumber_text) > len(full_text):
+                    full_text = plumber_text
+                    extraction_method = "pdfplumber"
+                    logging.info(f"pdfplumber extracted {len(full_text)} chars")
+        except Exception as e:
+            logging.warning(f"pdfplumber extraction failed: {e}")
+    
+    # Method 3: Fall back to PyPDF2
+    if len(full_text.strip()) < 50:
+        try:
+            reader = PdfReader(io.BytesIO(pdf_content))
+            pypdf_text = ""
+            for page in reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    pypdf_text += page_text + "\n"
+            if len(pypdf_text) > len(full_text):
+                full_text = pypdf_text
+                extraction_method = "pypdf2"
+                logging.info(f"PyPDF2 extracted {len(full_text)} chars")
+        except Exception as e:
+            logging.warning(f"PyPDF2 extraction failed: {e}")
+    
+    logging.info(f"PDF extraction complete - method: {extraction_method}, length: {len(full_text)}")
     if full_text:
         logging.info(f"First 500 chars: {full_text[:500]}")
     
     if not full_text.strip():
-        logging.error("PDF extraction returned empty text")
-        raise ValueError("Could not extract text from PDF. The PDF might be image-based or encrypted. Try using 'Paste Script' instead.")
+        logging.error("All PDF extraction methods failed")
+        raise ValueError("Could not extract text from PDF. The PDF might be image-based (scanned), encrypted, or in an unsupported format. Try using 'Paste Script' instead.")
     
     # Try AI-powered parsing first for best results
     try:
@@ -1406,7 +1453,8 @@ async def debug_parse_pdf(
     result = {
         "filename": file.filename,
         "size_bytes": len(content),
-        "extracted_text": "",
+        "extraction_method": "none",
+        "extracted_text_length": 0,
         "ai_parsing_attempted": False,
         "ai_parsing_success": False,
         "ai_error": None,
@@ -1416,20 +1464,57 @@ async def debug_parse_pdf(
         "text_preview": ""
     }
     
+    full_text = ""
+    
     try:
-        # Extract text from PDF
-        reader = PdfReader(io.BytesIO(content))
-        full_text = ""
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                full_text += page_text + "\n"
+        # Method 1: PyMuPDF
+        try:
+            doc = fitz.open(stream=content, filetype="pdf")
+            for page in doc:
+                text = page.get_text()
+                if text:
+                    full_text += text + "\n"
+            doc.close()
+            if full_text.strip():
+                result["extraction_method"] = "pymupdf"
+        except Exception as e:
+            result["pymupdf_error"] = str(e)
+        
+        # Method 2: pdfplumber
+        if len(full_text.strip()) < 50:
+            try:
+                with pdfplumber.open(io.BytesIO(content)) as pdf:
+                    plumber_text = ""
+                    for page in pdf.pages:
+                        text = page.extract_text()
+                        if text:
+                            plumber_text += text + "\n"
+                    if len(plumber_text) > len(full_text):
+                        full_text = plumber_text
+                        result["extraction_method"] = "pdfplumber"
+            except Exception as e:
+                result["pdfplumber_error"] = str(e)
+        
+        # Method 3: PyPDF2
+        if len(full_text.strip()) < 50:
+            try:
+                reader = PdfReader(io.BytesIO(content))
+                pypdf_text = ""
+                for page in reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        pypdf_text += page_text + "\n"
+                if len(pypdf_text) > len(full_text):
+                    full_text = pypdf_text
+                    result["extraction_method"] = "pypdf2"
+            except Exception as e:
+                result["pypdf2_error"] = str(e)
         
         result["extracted_text_length"] = len(full_text)
-        result["text_preview"] = full_text[:500] if full_text else ""
+        result["text_preview"] = full_text[:1000] if full_text else ""
         
         if not full_text.strip():
-            result["error"] = "PDF text extraction returned empty. PDF might be image-based."
+            result["error"] = "All PDF text extraction methods failed. PDF might be image-based (scanned) or encrypted."
             return result
         
         # Try AI parsing
