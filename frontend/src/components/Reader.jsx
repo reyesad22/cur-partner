@@ -18,10 +18,11 @@ import {
   Volume2,
   Loader2,
   X,
-  VolumeX
+  VolumeX,
+  SkipForward,
+  Square
 } from "lucide-react";
 import { toast } from "sonner";
-import Fuse from "fuse.js";
 
 const Reader = () => {
   const { id } = useParams();
@@ -32,25 +33,23 @@ const Reader = () => {
   const [lines, setLines] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Reader state
+  // Rehearsal state
+  const [rehearsalStarted, setRehearsalStarted] = useState(false);
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const [isListening, setIsListening] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [transcript, setTranscript] = useState("");
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   
   // Settings
-  const [fontSize, setFontSize] = useState(32);
+  const [fontSize, setFontSize] = useState(28);
   const [showSettings, setShowSettings] = useState(false);
-  const [autoScroll, setAutoScroll] = useState(true);
-  const [showDebug, setShowDebug] = useState(false);
-  const [sensitivity, setSensitivity] = useState(0.4);
-  const [autoPlayAudio, setAutoPlayAudio] = useState(true);
+  const [autoAdvance, setAutoAdvance] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   
   // Refs
   const recognitionRef = useRef(null);
   const lineRefs = useRef([]);
-  const fuseRef = useRef(null);
   const containerRef = useRef(null);
   const audioRef = useRef(null);
 
@@ -58,60 +57,77 @@ const Reader = () => {
     fetchReaderData();
     return () => {
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try { recognitionRef.current.stop(); } catch (e) {}
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
       }
     };
   }, [id]);
 
-  // Initialize Fuse.js for fuzzy matching
-  useEffect(() => {
-    if (lines.length > 0) {
-      fuseRef.current = new Fuse(lines.map((l, i) => ({ text: l.text.toLowerCase(), index: i })), {
-        keys: ['text'],
-        threshold: sensitivity,
-        includeScore: true
-      });
-    }
-  }, [lines, sensitivity]);
-
   // Auto-scroll to current line
   useEffect(() => {
-    if (autoScroll && lineRefs.current[currentLineIndex]) {
+    if (rehearsalStarted && lineRefs.current[currentLineIndex]) {
       lineRefs.current[currentLineIndex].scrollIntoView({
         behavior: 'smooth',
         block: 'center'
       });
     }
-  }, [currentLineIndex, autoScroll]);
+  }, [currentLineIndex, rehearsalStarted]);
 
-  // Auto-play audio for cue lines AND auto-advance after audio ends
+  // Auto-play audio for cue lines when rehearsal is active
   useEffect(() => {
-    if (autoPlayAudio && !isMuted && lines[currentLineIndex]) {
+    if (rehearsalStarted && !isMuted && lines[currentLineIndex]) {
       const currentLine = lines[currentLineIndex];
+      
       // If it's a cue line (not user's line) and has audio, play it
       if (!currentLine.is_user_line && currentLine.audio_url) {
         playLineAudio(currentLine.audio_url);
+      } else if (currentLine.is_user_line) {
+        // It's user's turn - start listening
+        startListening();
       }
     }
-  }, [currentLineIndex, autoPlayAudio, isMuted]);
+  }, [currentLineIndex, rehearsalStarted, isMuted, lines]);
 
-  const playLineAudio = (audioUrl) => {
+  const playLineAudio = async (audioUrl) => {
+    if (!audioUrl) return;
+    
+    // Stop any existing audio
     if (audioRef.current) {
       audioRef.current.pause();
+      audioRef.current = null;
     }
-    const audio = new Audio(audioUrl);
-    audioRef.current = audio;
     
-    // Auto-advance to next line after audio ends
-    audio.onended = () => {
-      // Move to next line automatically after cue audio finishes
-      if (currentLineIndex < lines.length - 1) {
-        setCurrentLineIndex(prev => prev + 1);
-        setTranscript("");
-      }
-    };
+    // Stop listening while audio plays
+    stopListening();
+    setIsAudioPlaying(true);
     
-    audio.play().catch(e => console.log("Audio play failed:", e));
+    try {
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setIsAudioPlaying(false);
+        // Auto-advance to next line after audio ends
+        if (autoAdvance && currentLineIndex < lines.length - 1) {
+          setCurrentLineIndex(prev => prev + 1);
+        }
+      };
+      
+      audio.onerror = (e) => {
+        console.error("Audio playback error:", e);
+        setIsAudioPlaying(false);
+        toast.error("Failed to play audio");
+      };
+      
+      await audio.play();
+    } catch (e) {
+      console.error("Audio play failed:", e);
+      setIsAudioPlaying(false);
+      // On mobile, autoplay might be blocked - show message
+      toast.error("Tap the play button to hear the line");
+    }
   };
 
   const fetchReaderData = async () => {
@@ -132,12 +148,15 @@ const Reader = () => {
     }
   };
 
-  const initSpeechRecognition = useCallback(() => {
+  const startListening = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      toast.error("Speech recognition not supported in this browser");
-      return null;
+      return;
     }
-
+    
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+    }
+    
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     
@@ -146,183 +165,130 @@ const Reader = () => {
     recognition.lang = 'en-US';
 
     recognition.onresult = (event) => {
-      let interimTranscript = '';
-      let finalTranscript = '';
-
+      let currentTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
-        }
+        currentTranscript += event.results[i][0].transcript;
       }
-
-      const currentTranscript = (finalTranscript || interimTranscript).toLowerCase().trim();
-      setTranscript(currentTranscript);
-
-      // Check if the current user line matches
-      if (currentLineIndex < lines.length) {
-        const currentLine = lines[currentLineIndex];
-        
-        if (currentLine.is_user_line) {
-          // User is speaking their line - check for match
-          const lineText = currentLine.text.toLowerCase();
-          const match = fuzzyMatch(currentTranscript, lineText);
-          
-          if (match) {
-            // Move to next line
-            handleNextLine();
-          }
+      
+      setTranscript(currentTranscript.toLowerCase().trim());
+      
+      // Check if user said enough of their line
+      if (lines[currentLineIndex]?.is_user_line) {
+        const match = fuzzyMatch(currentTranscript.toLowerCase(), lines[currentLineIndex].text.toLowerCase());
+        if (match) {
+          // User completed their line - move to next
+          handleNextLine();
         }
       }
     };
 
     recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
+      console.log("Speech recognition error:", event.error);
       if (event.error !== 'no-speech') {
-        toast.error(`Recognition error: ${event.error}`);
+        setIsListening(false);
       }
     };
 
     recognition.onend = () => {
       // Restart if still supposed to be listening
-      if (isListening && isPlaying) {
-        recognition.start();
+      if (isListening && rehearsalStarted && lines[currentLineIndex]?.is_user_line) {
+        try { recognition.start(); } catch (e) {}
       }
     };
 
-    return recognition;
-  }, [currentLineIndex, lines, isListening, isPlaying]);
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+      setIsListening(true);
+    } catch (e) {
+      console.error("Failed to start speech recognition:", e);
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+    }
+    setIsListening(false);
+  };
 
   const fuzzyMatch = (spoken, target) => {
     if (!spoken || !target) return false;
     
-    // Clean both strings - remove punctuation and normalize
     const cleanSpoken = spoken.replace(/[^\w\s]/g, '').trim().toLowerCase();
     const cleanTarget = target.replace(/[^\w\s]/g, '').trim().toLowerCase();
     
-    // If spoken text is very short, wait for more
     if (cleanSpoken.length < 3) return false;
     
-    // EASY MODE: Check for any significant word matches
+    // Get significant words
     const spokenWords = cleanSpoken.split(/\s+/).filter(w => w.length > 2);
     const targetWords = cleanTarget.split(/\s+/).filter(w => w.length > 2);
     
     if (spokenWords.length === 0) return false;
     
-    // Count how many target words appear in spoken text
+    // Count matching words
     let matchedWords = 0;
-    let importantWordMatched = false;
+    const commonWords = ['the', 'and', 'but', 'for', 'are', 'was', 'were', 'have', 'has', 'will', 'would', 'could', 'should', 'can', 'that', 'this', 'with', 'from', 'they', 'them', 'their', 'what', 'when', 'where', 'which', 'who'];
     
     for (const targetWord of targetWords) {
-      // Skip common words
-      if (['the', 'and', 'but', 'for', 'are', 'was', 'were', 'been', 'being', 'have', 'has', 'had', 'will', 'would', 'could', 'should', 'can', 'may', 'might', 'must', 'shall', 'that', 'this', 'with', 'from', 'they', 'them', 'their', 'what', 'when', 'where', 'which', 'who', 'whom', 'whose', 'how', 'why'].includes(targetWord)) {
-        continue;
-      }
+      if (commonWords.includes(targetWord)) continue;
       
       for (const spokenWord of spokenWords) {
-        // Exact match
-        if (targetWord === spokenWord) {
+        if (targetWord === spokenWord || 
+            (targetWord.length >= 4 && spokenWord.startsWith(targetWord.substring(0, 3))) ||
+            (spokenWord.length >= 4 && targetWord.startsWith(spokenWord.substring(0, 3)))) {
           matchedWords++;
-          if (targetWord.length >= 4) importantWordMatched = true;
           break;
         }
-        // Partial match - word starts with same letters
-        if (targetWord.length >= 4 && spokenWord.length >= 3) {
-          if (targetWord.startsWith(spokenWord.substring(0, 3)) || 
-              spokenWord.startsWith(targetWord.substring(0, 3))) {
-            matchedWords++;
-            break;
-          }
-        }
-        // Contains match
-        if (targetWord.length >= 5 && spokenWord.length >= 5) {
-          if (targetWord.includes(spokenWord) || spokenWord.includes(targetWord)) {
-            matchedWords++;
-            break;
-          }
-        }
       }
     }
     
-    // VERY EASY MATCHING:
-    // Just need 1 important word (4+ letters) to match
-    // OR 2 any words to match
-    // OR the spoken text is very similar overall
-    
-    if (importantWordMatched) return true;
-    if (matchedWords >= 2) return true;
-    
-    // Also check if first few words match (common for actors to start correctly)
-    if (spokenWords.length >= 1 && targetWords.length >= 1) {
-      const firstSpoken = spokenWords[0];
-      const firstTarget = targetWords[0];
-      if (firstSpoken === firstTarget || 
-          (firstSpoken.length >= 3 && firstTarget.startsWith(firstSpoken.substring(0, 3)))) {
-        return true;
-      }
-    }
-    
-    return false;
+    // Need at least 1 important word or 25% of words
+    return matchedWords >= 1 || matchedWords >= targetWords.length * 0.25;
   };
 
   const handleNextLine = () => {
+    stopListening();
+    setTranscript("");
+    
     if (currentLineIndex < lines.length - 1) {
       setCurrentLineIndex(prev => prev + 1);
-      setTranscript("");
     } else {
-      // Reached end
-      setIsPlaying(false);
-      setIsListening(false);
-      toast.success("You've completed the script!");
+      // End of script
+      setRehearsalStarted(false);
+      toast.success("Scene complete! Great job!");
     }
   };
 
   const handlePrevLine = () => {
     if (currentLineIndex > 0) {
+      stopListening();
+      if (audioRef.current) audioRef.current.pause();
       setCurrentLineIndex(prev => prev - 1);
       setTranscript("");
     }
   };
 
-  const toggleListening = () => {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-    } else {
-      if (!recognitionRef.current) {
-        recognitionRef.current = initSpeechRecognition();
-      }
-      if (recognitionRef.current) {
-        recognitionRef.current.start();
-        setIsListening(true);
-        setIsPlaying(true);
-      }
-    }
-  };
-
-  const togglePlayPause = () => {
-    if (isPlaying) {
-      setIsPlaying(false);
-      recognitionRef.current?.stop();
-      setIsListening(false);
-    } else {
-      setIsPlaying(true);
-      if (!recognitionRef.current) {
-        recognitionRef.current = initSpeechRecognition();
-      }
-      recognitionRef.current?.start();
-      setIsListening(true);
-    }
-  };
-
-  const handleReset = () => {
+  const startRehearsal = () => {
+    setRehearsalStarted(true);
     setCurrentLineIndex(0);
     setTranscript("");
-    setIsPlaying(false);
-    setIsListening(false);
-    recognitionRef.current?.stop();
+    toast.success("Rehearsal started! Listen and speak your lines.");
+  };
+
+  const stopRehearsal = () => {
+    setRehearsalStarted(false);
+    stopListening();
+    if (audioRef.current) audioRef.current.pause();
+    setCurrentLineIndex(0);
+    setTranscript("");
+  };
+
+  const replayCurrentAudio = () => {
+    const currentLine = lines[currentLineIndex];
+    if (currentLine?.audio_url && !currentLine.is_user_line) {
+      playLineAudio(currentLine.audio_url);
+    }
   };
 
   if (loading) {
@@ -334,37 +300,102 @@ const Reader = () => {
   }
 
   const currentLine = lines[currentLineIndex];
+  const userCharacter = project?.user_character;
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col" data-testid="reader-page">
-      {/* Header */}
-      <header className="app-header border-b border-border shrink-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-12 md:h-14">
-            <div className="flex items-center gap-3 md:gap-4">
+  // Start Screen (like Actoncue)
+  if (!rehearsalStarted) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col" data-testid="reader-start">
+        {/* Header */}
+        <header className="border-b border-border bg-card/50">
+          <div className="max-w-4xl mx-auto px-4">
+            <div className="flex items-center justify-between h-14">
               <Link
                 to={`/project/${id}`}
                 className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
               >
                 <ArrowLeft className="w-5 h-5" />
+                <span className="text-sm">Back</span>
               </Link>
-              <h1 className="font-semibold truncate text-sm md:text-base max-w-[150px] md:max-w-none">{project?.project_title}</h1>
+              <h1 className="font-semibold">{project?.project_title}</h1>
+              <div className="w-16"></div>
             </div>
+          </div>
+        </header>
 
-            <div className="flex items-center gap-2">
-              <span className="text-xs md:text-sm text-muted-foreground">
-                {currentLineIndex + 1}/{lines.length}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowSettings(!showSettings)}
-                className="w-8 h-8 md:w-10 md:h-10"
-                data-testid="settings-btn"
-              >
-                <Settings className="w-4 h-4 md:w-5 md:h-5" />
-              </Button>
+        {/* Start Screen Content */}
+        <div className="flex-1 flex flex-col items-center justify-center p-6">
+          <div className="text-center max-w-md">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+              <Mic className="w-10 h-10 text-white" />
             </div>
+            
+            <h2 className="text-2xl font-bold mb-3">Ready to Rehearse?</h2>
+            
+            <p className="text-muted-foreground mb-6">
+              You're playing <span className="text-purple-400 font-semibold">{userCharacter}</span>.
+              <br />
+              The AI will read all other characters' lines.
+            </p>
+            
+            <div className="bg-card rounded-lg p-4 mb-6 text-left">
+              <h3 className="font-semibold mb-2">Scene Overview</h3>
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p>{lines.length} lines total</p>
+                <p>{lines.filter(l => l.is_user_line).length} of your lines</p>
+                <p>{project?.characters?.length || 0} characters</p>
+              </div>
+            </div>
+            
+            <Button
+              size="lg"
+              onClick={startRehearsal}
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-lg py-6"
+              data-testid="start-rehearsal-btn"
+            >
+              <Play className="w-6 h-6 mr-2" />
+              Start Rehearsal
+            </Button>
+            
+            <p className="text-xs text-muted-foreground mt-4">
+              Make sure your microphone is enabled for voice detection
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Active Rehearsal Screen
+  return (
+    <div className="min-h-screen bg-background flex flex-col" data-testid="reader-active">
+      {/* Header */}
+      <header className="border-b border-border bg-card/50 shrink-0">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="flex items-center justify-between h-12">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={stopRehearsal}
+              className="text-muted-foreground"
+            >
+              <Square className="w-4 h-4 mr-1" />
+              Stop
+            </Button>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">
+                {currentLineIndex + 1} / {lines.length}
+              </span>
+            </div>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowSettings(!showSettings)}
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </header>
@@ -372,297 +403,203 @@ const Reader = () => {
       {/* Settings Panel */}
       {showSettings && (
         <div className="border-b border-border bg-card p-4 shrink-0">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Reader Settings</h3>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowSettings(false)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="space-y-2">
-                <Label>Font Size: {fontSize}px</Label>
+          <div className="max-w-4xl mx-auto space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>Font Size</Label>
+              <div className="flex items-center gap-2 w-48">
                 <Slider
                   value={[fontSize]}
-                  onValueChange={([val]) => setFontSize(val)}
+                  onValueChange={([v]) => setFontSize(v)}
                   min={18}
-                  max={64}
+                  max={48}
                   step={2}
-                  className="py-2"
-                  data-testid="font-size-slider"
                 />
+                <span className="text-sm w-8">{fontSize}</span>
               </div>
-              
-              <div className="space-y-2">
-                <Label>Match Sensitivity: {Math.round((1 - sensitivity) * 100)}%</Label>
-                <Slider
-                  value={[sensitivity]}
-                  onValueChange={([val]) => setSensitivity(val)}
-                  min={0.1}
-                  max={0.8}
-                  step={0.1}
-                  className="py-2"
-                  data-testid="sensitivity-slider"
-                />
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={autoScroll}
-                  onCheckedChange={setAutoScroll}
-                  id="auto-scroll"
-                  data-testid="auto-scroll-switch"
-                />
-                <Label htmlFor="auto-scroll">Auto-scroll</Label>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={autoPlayAudio}
-                  onCheckedChange={setAutoPlayAudio}
-                  id="auto-play-audio"
-                  data-testid="auto-play-audio-switch"
-                />
-                <Label htmlFor="auto-play-audio">Auto-play cue audio</Label>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={showDebug}
-                  onCheckedChange={setShowDebug}
-                  id="show-debug"
-                  data-testid="show-debug-switch"
-                />
-                <Label htmlFor="show-debug">Show Debug</Label>
-              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label>Auto-advance after audio</Label>
+              <Switch checked={autoAdvance} onCheckedChange={setAutoAdvance} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label>Mute voices</Label>
+              <Switch checked={isMuted} onCheckedChange={setIsMuted} />
             </div>
           </div>
         </div>
       )}
 
-      {/* Main Reader Area */}
-      <div className="flex-1 overflow-hidden flex flex-col">
-        {/* Lines Display */}
-        <div 
-          ref={containerRef}
-          className="flex-1 overflow-y-auto px-4 py-8"
-          data-testid="lines-container"
-        >
-          <div className="max-w-4xl mx-auto space-y-6">
+      {/* Script Content */}
+      <div className="flex-1 overflow-y-auto" ref={containerRef}>
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          <div className="space-y-4">
             {lines.map((line, idx) => {
               const isActive = idx === currentLineIndex;
-              const isCompleted = idx < currentLineIndex;
               const isUserLine = line.is_user_line;
+              const isCompleted = idx < currentLineIndex;
               
               return (
                 <div
                   key={line.id}
                   ref={el => lineRefs.current[idx] = el}
                   className={`
-                    p-4 rounded-xl transition-all duration-300 cursor-pointer select-none
+                    p-4 rounded-xl transition-all duration-300 cursor-pointer
                     ${isActive 
                       ? isUserLine 
-                        ? 'bg-purple-500/20 border-2 border-purple-500 scale-[1.02]' 
-                        : 'bg-secondary border-2 border-muted-foreground/30 scale-[1.02]'
+                        ? 'bg-purple-500/20 border-2 border-purple-500 scale-[1.01]' 
+                        : 'bg-secondary border-2 border-muted-foreground/30 scale-[1.01]'
                       : isCompleted
                         ? 'opacity-40'
-                        : 'opacity-60 hover:opacity-80'
+                        : 'opacity-60'
                     }
                   `}
-                  style={{ fontSize: isActive ? fontSize : fontSize * 0.8 }}
                   onClick={() => {
                     if (isActive) {
-                      // If clicking the current active line, advance to next
                       handleNextLine();
                     } else {
+                      if (audioRef.current) audioRef.current.pause();
+                      stopListening();
                       setCurrentLineIndex(idx);
                     }
                   }}
-                  data-testid={`reader-line-${idx}`}
                 >
-                  <p className={`text-xs mb-2 font-medium ${
-                    isUserLine ? 'text-purple-400' : 'text-muted-foreground'
-                  }`}>
-                    {line.character}
-                    {isUserLine && ' (You)'}
-                  </p>
-                  <p className={`leading-relaxed ${
-                    isUserLine && isActive ? 'text-purple-200' : ''
-                  }`}>
+                  <div className="flex items-start gap-3">
+                    <div className="shrink-0">
+                      <span className={`
+                        text-xs font-semibold px-2 py-1 rounded
+                        ${isUserLine 
+                          ? 'bg-purple-500/30 text-purple-300' 
+                          : 'bg-muted text-muted-foreground'
+                        }
+                      `}>
+                        {line.character}
+                        {isUserLine && ' (You)'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <p 
+                    className={`mt-2 leading-relaxed ${isUserLine ? 'text-purple-100' : ''}`}
+                    style={{ fontSize: isActive ? fontSize : fontSize * 0.85 }}
+                  >
                     {line.text}
                   </p>
+                  
+                  {isActive && !isUserLine && line.audio_url && (
+                    <div className="mt-2 flex items-center gap-2">
+                      {isAudioPlaying ? (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Volume2 className="w-3 h-3 animate-pulse" /> Playing...
+                        </span>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            replayCurrentAudio();
+                          }}
+                          className="text-xs h-7"
+                        >
+                          <Play className="w-3 h-3 mr-1" /> Replay
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         </div>
-
-        {/* Debug Panel */}
-        {showDebug && (
-          <div className="border-t border-border bg-card p-4 shrink-0">
-            <div className="max-w-4xl mx-auto">
-              <div className="flex items-center gap-2 mb-2">
-                <Volume2 className="w-4 h-4 text-purple-400" />
-                <span className="text-sm font-medium">Voice Detection</span>
-                {isListening && (
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                )}
-              </div>
-              <div className="p-3 rounded-lg bg-secondary min-h-[60px]">
-                <p className="text-sm text-muted-foreground">
-                  {transcript || "Start speaking to see transcription..."}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Controls Bar - With all icons always visible */}
-      <div className="border-t border-border bg-card shrink-0 safe-area-bottom">
-        {/* Voice Transcript Bar - Visible when listening */}
-        {isListening && (
-          <div className="bg-secondary/50 border-b border-border px-4 py-3">
-            <div className="max-w-4xl mx-auto flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0">
-                <Mic className="w-4 h-4 text-purple-400 animate-pulse" />
-              </div>
-              <p className="text-sm text-muted-foreground flex-1 min-h-[20px]">
-                {transcript ? `...${transcript}` : "Listening for your voice..."}
-              </p>
-              <Button 
-                onClick={toggleListening}
-                variant="destructive"
-                size="sm"
-                className="shrink-0"
-                data-testid="stop-listening-btn"
-              >
-                Stop
-              </Button>
-            </div>
-          </div>
-        )}
-        
-        {/* Main Controls - Always visible */}
-        <div className="p-3 md:p-4">
-          {/* Status indicator */}
-          <div className="max-w-4xl mx-auto mb-3 text-center">
+      {/* Status Bar */}
+      <div className="border-t border-border bg-card/80 backdrop-blur shrink-0 safe-area-bottom">
+        <div className="max-w-4xl mx-auto px-4 py-3">
+          {/* Current status */}
+          <div className="text-center mb-3">
             {currentLine?.is_user_line ? (
               <div className="flex items-center justify-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-green-500 animate-pulse' : 'bg-purple-500'}`} />
-                <p className="text-sm font-medium text-purple-400">
-                  {isListening ? "Listening - speak your line" : "Your turn - tap mic or tap line to advance"}
-                </p>
+                <span className="text-sm font-medium text-purple-400">
+                  Your turn - speak your line
+                </span>
               </div>
             ) : (
               <div className="flex items-center justify-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${audioRef.current && !audioRef.current.paused ? 'bg-pink-500 animate-pulse' : 'bg-muted-foreground'}`} />
-                <p className="text-sm text-muted-foreground">
-                  {currentLine?.character}'s line - {audioRef.current && !audioRef.current.paused ? "Playing..." : "tap to play or wait"}
-                </p>
+                <div className={`w-3 h-3 rounded-full ${isAudioPlaying ? 'bg-pink-500 animate-pulse' : 'bg-muted-foreground'}`} />
+                <span className="text-sm text-muted-foreground">
+                  {isAudioPlaying ? `${currentLine?.character} is speaking...` : 'Waiting...'}
+                </span>
               </div>
             )}
           </div>
-        
-          {/* All controls always visible */}
-          <div className="max-w-4xl mx-auto flex items-center justify-center gap-2 md:gap-4">
+          
+          {/* Transcript (if user is speaking) */}
+          {currentLine?.is_user_line && transcript && (
+            <div className="bg-secondary/50 rounded-lg px-3 py-2 mb-3 text-center">
+              <p className="text-sm text-muted-foreground italic">"{transcript}"</p>
+            </div>
+          )}
+          
+          {/* Controls */}
+          <div className="flex items-center justify-center gap-3">
             <Button
-              variant="ghost"
+              variant="outline"
               size="icon"
-              onClick={handleReset}
-              className="w-10 h-10 md:w-12 md:h-12"
-              title="Reset"
-              data-testid="reset-btn"
+              onClick={handlePrevLine}
+              disabled={currentLineIndex === 0}
+              className="w-10 h-10"
             >
-              <RotateCcw className="w-5 h-5" />
+              <ChevronUp className="w-5 h-5" />
             </Button>
             
             <Button
-              variant="ghost"
+              variant="outline"
               size="icon"
               onClick={() => setIsMuted(!isMuted)}
-              className={`w-10 h-10 md:w-12 md:h-12 ${isMuted ? 'text-red-400' : ''}`}
-              title={isMuted ? "Unmute" : "Mute"}
-              data-testid="mute-btn"
+              className="w-10 h-10"
             >
               {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
             </Button>
             
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handlePrevLine}
-              disabled={currentLineIndex === 0}
-              className="w-10 h-10 md:w-12 md:h-12"
-              title="Previous line"
-              data-testid="prev-line-btn"
-            >
-              <ChevronUp className="w-6 h-6" />
-            </Button>
-            
-            {/* Main mic button */}
-            <Button
-              onClick={toggleListening}
-              className={`w-16 h-16 md:w-20 md:h-20 rounded-full transition-all ${
-                isListening 
-                  ? 'bg-red-500 hover:bg-red-600 scale-105' 
-                  : 'bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
-              }`}
-              title={isListening ? "Stop listening" : "Start listening"}
-              data-testid="mic-btn"
-            >
-              {isListening ? (
-                <MicOff className="w-7 h-7 md:w-8 md:h-8" />
-              ) : (
-                <Mic className="w-7 h-7 md:w-8 md:h-8" />
-              )}
-            </Button>
+            {currentLine?.is_user_line ? (
+              <Button
+                size="lg"
+                onClick={isListening ? stopListening : startListening}
+                className={`w-14 h-14 rounded-full ${isListening ? 'bg-green-500 hover:bg-green-600' : 'bg-purple-500 hover:bg-purple-600'}`}
+              >
+                {isListening ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                onClick={replayCurrentAudio}
+                disabled={!currentLine?.audio_url || isAudioPlaying}
+                className="w-14 h-14 rounded-full bg-pink-500 hover:bg-pink-600"
+              >
+                {isAudioPlaying ? <Loader2 className="w-6 h-6 animate-spin" /> : <Play className="w-6 h-6" />}
+              </Button>
+            )}
             
             <Button
-              variant="ghost"
+              variant="outline"
               size="icon"
               onClick={handleNextLine}
-              disabled={currentLineIndex === lines.length - 1}
-              className="w-10 h-10 md:w-12 md:h-12"
-              title="Next line"
-              data-testid="next-line-btn"
+              className="w-10 h-10"
             >
-              <ChevronDown className="w-6 h-6" />
+              <SkipForward className="w-5 h-5" />
             </Button>
             
             <Button
-              variant="ghost"
+              variant="outline"
               size="icon"
-              onClick={togglePlayPause}
-              className="w-10 h-10 md:w-12 md:h-12"
-              title={isPlaying ? "Pause" : "Play"}
-              data-testid="play-pause-btn"
+              onClick={handleNextLine}
+              disabled={currentLineIndex >= lines.length - 1}
+              className="w-10 h-10"
             >
-              {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+              <ChevronDown className="w-5 h-5" />
             </Button>
-            
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowSettings(true)}
-              className="w-10 h-10 md:w-12 md:h-12"
-              title="Settings"
-              data-testid="settings-btn"
-            >
-              <Settings className="w-5 h-5" />
-            </Button>
-          </div>
-          
-          {/* Line counter */}
-          <div className="max-w-4xl mx-auto mt-2 text-center">
-            <span className="text-xs text-muted-foreground">
-              Line {currentLineIndex + 1} of {lines.length}
-            </span>
           </div>
         </div>
       </div>
