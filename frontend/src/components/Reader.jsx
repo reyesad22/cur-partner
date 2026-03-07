@@ -21,6 +21,44 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+// Helper function for fuzzy word matching
+const fuzzyWordMatch = (spoken, target) => {
+  // Normalize both strings
+  const s = spoken.toLowerCase().replace(/[^\w]/g, '');
+  const t = target.toLowerCase().replace(/[^\w]/g, '');
+  
+  if (s === t) return true;
+  if (s.length < 2 || t.length < 2) return s === t;
+  
+  // Allow for slight differences (mishearing, accents)
+  // If 80% of characters match, consider it a match
+  const minLen = Math.min(s.length, t.length);
+  const maxLen = Math.max(s.length, t.length);
+  
+  // Starts with match (for partial words)
+  if (t.startsWith(s) || s.startsWith(t)) return true;
+  
+  // Character overlap check for words 4+ chars
+  if (minLen >= 4) {
+    let matches = 0;
+    for (let i = 0; i < minLen; i++) {
+      if (s[i] === t[i]) matches++;
+    }
+    if (matches / maxLen >= 0.7) return true;
+  }
+  
+  // Levenshtein-like basic check for short words
+  if (Math.abs(s.length - t.length) <= 1) {
+    let diffs = 0;
+    for (let i = 0; i < Math.max(s.length, t.length); i++) {
+      if (s[i] !== t[i]) diffs++;
+    }
+    if (diffs <= 1) return true;
+  }
+  
+  return false;
+};
+
 const Reader = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -40,6 +78,7 @@ const Reader = () => {
   const [matchedWords, setMatchedWords] = useState([]);
   const [waitingForUser, setWaitingForUser] = useState(false);
   const [silenceTimer, setSilenceTimer] = useState(null);
+  const [patientMode, setPatientMode] = useState(true); // Wait longer for user
   
   // Settings
   const [fontSize, setFontSize] = useState(32);
@@ -211,26 +250,25 @@ const Reader = () => {
       const cleanTranscript = fullTranscript.toLowerCase().trim();
       setTranscript(cleanTranscript);
       
-      // Highlight matching words in user's line
+      // Enhanced word-by-word highlighting for user's lines
       if (lines[currentLineIndex]?.is_user_line) {
-        const lineWords = lines[currentLineIndex].text.toLowerCase().split(/\s+/);
-        const spokenWords = cleanTranscript.split(/\s+/);
+        const lineWords = lines[currentLineIndex].text.split(/\s+/);
+        const spokenWords = cleanTranscript.split(/\s+/).filter(w => w.length > 0);
         
         const matched = [];
-        let lineIdx = 0;
+        let searchStartIdx = 0; // Track where to start searching in line words
         
         for (const spokenWord of spokenWords) {
-          // Look for this word in remaining line words
-          for (let i = lineIdx; i < lineWords.length; i++) {
-            const lineWord = lineWords[i].replace(/[^\w]/g, '');
-            const spoken = spokenWord.replace(/[^\w]/g, '');
+          // Look for this word in remaining line words (allowing some flexibility)
+          for (let i = searchStartIdx; i < lineWords.length; i++) {
+            const lineWord = lineWords[i];
             
-            if (lineWord === spoken || 
-                (lineWord.length > 3 && spoken.length > 2 && 
-                 (lineWord.startsWith(spoken) || spoken.startsWith(lineWord.substring(0, 3))))) {
+            if (fuzzyWordMatch(spokenWord, lineWord)) {
               matched.push(i);
-              lineIdx = i + 1;
+              // Update highlight to latest matched word
               setHighlightedWordIndex(i);
+              // Next search starts after this word (but allow some backtrack for corrections)
+              searchStartIdx = Math.max(searchStartIdx, i);
               break;
             }
           }
@@ -238,10 +276,24 @@ const Reader = () => {
         
         setMatchedWords(matched);
         
-        // Check if user finished the line (matched most words)
-        const matchRatio = matched.length / lineWords.filter(w => w.length > 2).length;
-        if (matchRatio >= 0.6 || matched.length >= 3) {
-          // User has said enough - wait for silence then advance
+        // Calculate how much of the line is complete
+        // Only count significant words (3+ chars) for completion check
+        const significantLineWords = lineWords.filter(w => w.replace(/[^\w]/g, '').length > 2);
+        const significantMatched = matched.filter(idx => 
+          lineWords[idx].replace(/[^\w]/g, '').length > 2
+        );
+        
+        const matchRatio = significantLineWords.length > 0 
+          ? significantMatched.length / significantLineWords.length 
+          : 0;
+        
+        // Patient mode: require higher completion before auto-advancing
+        const completionThreshold = patientMode ? 0.7 : 0.5;
+        const minWordsMatched = patientMode ? 4 : 3;
+        
+        // Check if user has completed enough of the line
+        if (matchRatio >= completionThreshold || significantMatched.length >= Math.min(minWordsMatched, significantLineWords.length)) {
+          // User has said enough - start watching for silence
           checkForSilenceAndAdvance();
         }
       }
@@ -274,16 +326,21 @@ const Reader = () => {
   };
 
   const checkForSilenceAndAdvance = () => {
-    // Wait for 1.5 seconds of silence before advancing
+    // Patient mode waits longer for natural pauses
+    const silenceThreshold = patientMode ? 2500 : 1500;
+    
     if (silenceTimer) clearTimeout(silenceTimer);
     
     const timer = setTimeout(() => {
       const timeSinceLastSpeech = Date.now() - lastSpeechTime.current;
-      if (timeSinceLastSpeech >= 1500) {
+      if (timeSinceLastSpeech >= silenceThreshold) {
         // User has paused long enough - advance
         handleLineComplete();
+      } else {
+        // Still speaking, check again
+        checkForSilenceAndAdvance();
       }
-    }, 1500);
+    }, silenceThreshold);
     
     setSilenceTimer(timer);
   };
@@ -367,7 +424,7 @@ const Reader = () => {
     }
   };
 
-  // Render words with highlighting
+  // Render words with highlighting - teleprompter style
   const renderLineText = (line, idx) => {
     const isActive = idx === currentLineIndex && rehearsalStarted;
     const words = line.text.split(/\s+/);
@@ -377,29 +434,43 @@ const Reader = () => {
     }
     
     return (
-      <span>
+      <span className="inline">
         {words.map((word, wordIdx) => {
-          let className = "transition-all duration-150 ";
+          const isMatched = matchedWords.includes(wordIdx);
+          const isCurrentWord = wordIdx === highlightedWordIndex;
+          const isPastWord = wordIdx < highlightedWordIndex;
+          
+          let className = "inline-block transition-all duration-200 mx-[1px] ";
           
           if (line.is_user_line) {
-            // User's line - highlight matched words
-            if (matchedWords.includes(wordIdx)) {
-              className += "text-green-400 font-semibold";
-            } else if (wordIdx <= highlightedWordIndex) {
-              className += "text-purple-300";
+            // User's line - show progress through matched words
+            if (isMatched) {
+              // Word has been spoken correctly
+              className += "text-green-400 font-medium ";
+            } else if (isCurrentWord) {
+              // Current word being highlighted
+              className += "bg-purple-500/40 text-white font-semibold px-1 rounded scale-105 ";
+            } else if (isPastWord && !isMatched) {
+              // Past word but not matched (maybe skipped)
+              className += "text-purple-200/70 ";
+            } else {
+              // Upcoming word
+              className += "text-gray-300 ";
             }
           } else {
-            // AI line - highlight current word during playback
-            if (wordIdx === highlightedWordIndex) {
-              className += "bg-yellow-400/30 text-yellow-300 font-semibold px-1 rounded";
-            } else if (wordIdx < highlightedWordIndex) {
-              className += "text-muted-foreground";
+            // AI/cue line - highlight current word during playback
+            if (isCurrentWord) {
+              className += "bg-yellow-500/40 text-yellow-200 font-semibold px-1 rounded scale-105 shadow-lg ";
+            } else if (isPastWord) {
+              className += "text-gray-500 ";
+            } else {
+              className += "text-gray-200 ";
             }
           }
           
           return (
             <span key={wordIdx} className={className}>
-              {word}{' '}
+              {word}
             </span>
           );
         })}
@@ -529,7 +600,7 @@ const Reader = () => {
       {/* Settings */}
       {showSettings && (
         <div className="bg-gray-900/95 border-b border-white/10 p-4 shrink-0">
-          <div className="max-w-md mx-auto">
+          <div className="max-w-md mx-auto space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-gray-400">Font Size</span>
               <div className="flex items-center gap-3 w-32">
@@ -543,6 +614,33 @@ const Reader = () => {
                 />
                 <span className="text-white w-6 text-right">{fontSize}</span>
               </div>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-gray-400">Patient Listening</span>
+                <p className="text-xs text-gray-600">Wait longer for you to finish speaking</p>
+              </div>
+              <Button
+                variant={patientMode ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPatientMode(!patientMode)}
+                className={patientMode ? "bg-purple-600 hover:bg-purple-700" : ""}
+              >
+                {patientMode ? "On" : "Off"}
+              </Button>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-gray-400">Auto-play Cue Audio</span>
+              <Button
+                variant={autoPlay ? "default" : "outline"}
+                size="sm"
+                onClick={() => setAutoPlay(!autoPlay)}
+                className={autoPlay ? "bg-pink-600 hover:bg-pink-700" : ""}
+              >
+                {autoPlay ? "On" : "Off"}
+              </Button>
             </div>
           </div>
         </div>
@@ -622,17 +720,31 @@ const Reader = () => {
       {/* Status & Controls Bar */}
       <div className="border-t border-white/10 bg-gray-900/95 backdrop-blur shrink-0 safe-area-bottom">
         <div className="max-w-4xl mx-auto px-4 py-4">
+          {/* Progress Bar */}
+          <div className="mb-3">
+            <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-purple-600 to-pink-600 transition-all duration-500"
+                style={{ width: `${((currentLineIndex + 1) / lines.length) * 100}%` }}
+              />
+            </div>
+          </div>
+          
           {/* Status */}
           <div className="text-center mb-4">
             {currentLine?.is_user_line ? (
               <div className="flex flex-col items-center gap-2">
                 <div className="flex items-center gap-2">
                   <div className={`
-                    w-3 h-3 rounded-full 
-                    ${isListening ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}
+                    w-3 h-3 rounded-full transition-colors
+                    ${isListening ? 'bg-green-500 animate-pulse shadow-lg shadow-green-500/50' : 'bg-gray-500'}
                   `} />
                   <span className="text-purple-400 font-medium">
-                    {isListening ? 'Listening... speak your line' : 'Tap mic to start'}
+                    {isListening ? (
+                      matchedWords.length > 0 
+                        ? `Keep going... ${Math.round((matchedWords.length / lines[currentLineIndex].text.split(/\s+/).length) * 100)}% complete`
+                        : 'Listening... speak your line'
+                    ) : 'Tap mic to start speaking'}
                   </span>
                 </div>
                 
@@ -646,15 +758,15 @@ const Reader = () => {
             ) : (
               <div className="flex items-center justify-center gap-2">
                 <div className={`
-                  w-3 h-3 rounded-full 
-                  ${isAudioPlaying ? 'bg-pink-500 animate-pulse' : 'bg-gray-500'}
+                  w-3 h-3 rounded-full transition-colors
+                  ${isAudioPlaying ? 'bg-pink-500 animate-pulse shadow-lg shadow-pink-500/50' : 'bg-gray-500'}
                 `} />
                 <span className="text-gray-400">
                   {isAudioPlaying 
                     ? `${currentLine?.character} is speaking...` 
                     : currentLine?.audio_url 
                       ? 'Tap play to hear line'
-                      : 'No audio available'
+                      : 'No audio - tap next to continue'
                   }
                 </span>
               </div>

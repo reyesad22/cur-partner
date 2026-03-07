@@ -382,8 +382,8 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
 
 async def parse_script_with_ai_async(script_text: str) -> tuple[list, set]:
     """Use GPT to intelligently parse any script format."""
-    from emergentintegrations.llm.openai import LlmChat
-    from emergentintegrations.llm.chat import UserMessage
+    # Use the correct import path from emergentintegrations
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
     
     # Truncate if too long
     max_chars = 15000
@@ -423,7 +423,7 @@ Important:
     
     session_id = f"script-parse-{uuid.uuid4()}"
     chat = LlmChat(api_key=api_key, session_id=session_id, system_message=system_message)
-    chat = chat.with_model("openai", "gpt-5.2").with_params(max_tokens=4000)
+    chat = chat.with_model("openai", "gpt-5.2")
     
     # Create proper UserMessage object
     user_message = UserMessage(text=prompt)
