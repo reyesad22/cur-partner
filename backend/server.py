@@ -318,7 +318,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
     """Parse PDF script and extract scenes with dialogue.
-    Tries multiple parsing strategies to handle different PDF formats.
+    Uses AI for robust parsing when regex methods fail.
     """
     reader = PdfReader(io.BytesIO(pdf_content))
     full_text = ""
@@ -335,7 +335,21 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
         logging.error("PDF extraction returned empty text")
         raise ValueError("Could not extract text from PDF. The PDF might be image-based or encrypted. Try using 'Paste Script' instead.")
     
-    # Try multiple parsing strategies
+    # Try AI-powered parsing first for best results
+    try:
+        lines_data, characters = parse_script_with_ai(full_text)
+        if lines_data:
+            logging.info(f"AI parsing succeeded: {len(lines_data)} lines, {len(characters)} characters")
+            scene = Scene(
+                id=str(uuid.uuid4()),
+                name="Main Scene",
+                lines=[Line(**l) for l in lines_data]
+            )
+            return [scene], list(characters)
+    except Exception as e:
+        logging.warning(f"AI parsing failed: {e}, falling back to regex methods")
+    
+    # Fallback to regex-based parsing strategies
     lines_data, characters = try_standard_screenplay_format(full_text)
     
     if not lines_data:
@@ -354,7 +368,6 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
     
     if not lines_data:
         logging.warning("No dialogue found with any parsing strategy")
-        # Provide helpful error with extracted text preview for debugging
         text_preview = full_text[:200].replace('\n', ' ')
         raise ValueError(f"Could not detect dialogue in PDF. The format might not be recognized. Try 'Paste Script' instead. Preview: '{text_preview}...'")
     
@@ -365,6 +378,110 @@ def parse_script_pdf(pdf_content: bytes) -> tuple[List[Scene], List[str]]:
     )
     
     return [scene], list(characters)
+
+
+async def parse_script_with_ai_async(script_text: str) -> tuple[list, set]:
+    """Use GPT to intelligently parse any script format."""
+    from emergentintegrations.llm.openai import LlmChat
+    
+    # Truncate if too long
+    max_chars = 15000
+    if len(script_text) > max_chars:
+        script_text = script_text[:max_chars]
+    
+    system_message = """You are a script parser. Your job is to analyze screenplay/script text and extract dialogue lines with their characters. You MUST return only valid JSON with no other text."""
+    
+    prompt = f"""Analyze this script/screenplay text and extract ALL dialogue lines with their characters.
+
+SCRIPT TEXT:
+{script_text}
+
+INSTRUCTIONS:
+1. Identify all speaking characters (names in CAPS before their lines)
+2. Extract each line of dialogue with the character who speaks it
+3. Ignore stage directions, scene headings, and action descriptions
+4. Return ONLY valid JSON in this exact format:
+
+{{
+  "characters": ["CHARACTER1", "CHARACTER2"],
+  "lines": [
+    {{"character": "CHARACTER1", "text": "Their first line of dialogue"}},
+    {{"character": "CHARACTER2", "text": "Their response"}}
+  ]
+}}
+
+Important:
+- Character names should be properly capitalized (e.g., "Bruno" not "BRUNO")
+- Include ALL dialogue lines, not just the first few
+- Remove parenthetical stage directions from dialogue text
+- Return valid JSON only, no markdown or explanation"""
+
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise ValueError("EMERGENT_LLM_KEY not configured")
+    
+    session_id = f"script-parse-{uuid.uuid4()}"
+    chat = LlmChat(api_key=api_key, session_id=session_id, system_message=system_message)
+    chat = chat.with_model("gpt-5.2").with_params(temperature=0.1, max_tokens=4000)
+    
+    response = await chat.send_message(prompt)
+    
+    # Parse the JSON response
+    import json
+    
+    # Clean up response - extract JSON if wrapped in markdown
+    response_text = response.strip()
+    if "```json" in response_text:
+        response_text = response_text.split("```json")[1].split("```")[0]
+    elif "```" in response_text:
+        response_text = response_text.split("```")[1].split("```")[0]
+    
+    data = json.loads(response_text)
+    
+    characters = set(data.get("characters", []))
+    lines_data = []
+    
+    for idx, line in enumerate(data.get("lines", [])):
+        char = line.get("character", "").strip()
+        text = line.get("text", "").strip()
+        
+        if char and text:
+            # Capitalize character name properly
+            char = char.title() if char.isupper() else char
+            characters.add(char)
+            
+            lines_data.append({
+                "id": str(uuid.uuid4()),
+                "character": char,
+                "text": text,
+                "line_number": idx + 1,
+                "is_user_line": False,
+                "emotion": None,
+                "audio_url": None
+            })
+    
+    return lines_data, characters
+
+
+def parse_script_with_ai(script_text: str) -> tuple[list, set]:
+    """Sync wrapper for AI parsing."""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # We're in an async context, create a new task
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run, 
+                    parse_script_with_ai_async(script_text)
+                )
+                return future.result(timeout=60)
+        else:
+            return loop.run_until_complete(parse_script_with_ai_async(script_text))
+    except Exception as e:
+        logging.error(f"AI parsing error: {e}")
+        raise
 
 def try_standard_screenplay_format(full_text: str) -> tuple[list, set]:
     """Parse standard screenplay format where character name is on its own line in CAPS."""
