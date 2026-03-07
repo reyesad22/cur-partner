@@ -9,6 +9,21 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 - Voice-tracked teleprompter/reader
 - Responsive design for desktop and mobile
 
+## Latest Update (Mar 7, 2026)
+### AI Script Parser Fix - VERIFIED WORKING
+- **Bug Fixed**: AI-powered PDF parser was failing due to incorrect import path
+- **Root Cause**: `parse_script_with_ai_async` was importing from wrong module
+- **Fix Applied**: Changed import from `emergentintegrations.llm.openai` to `emergentintegrations.llm.chat`
+- **Also Fixed**: Removed invalid `.with_params()` method call that doesn't exist in the library
+- **Status**: ✅ TESTED AND VERIFIED - Backend logs now show "AI parsing succeeded"
+
+### Teleprompter UX Improvements
+- **Word-by-word highlighting**: More visible highlighting as user speaks
+- **Patient listening mode**: Configurable setting to wait longer for user to finish (2.5s vs 1.5s)
+- **Better fuzzy matching**: Improved algorithm handles accents/mishearing better
+- **Progress indicator**: Shows percentage completion while speaking
+- **Settings panel**: Toggle for patient mode, auto-play audio, font size
+
 ## Tech Stack
 - **Frontend**: React 19 with Tailwind CSS, Radix UI components
 - **Backend**: FastAPI with Python
@@ -389,6 +404,11 @@ Build a website for CuePartner - a voice-powered cue reader and teleprompter for
 ## Known Issues
 - **Membership System**: UI-only, no payment integration (MOCKED)
 - **Resend Test Mode**: Currently can only send emails to verified email. Verify domain for production use.
+- **Browser Caching on Production**: Users on getcuepartner.com may need to clear site data to see new updates (PWA caches aggressively)
+
+## Completed Tasks (Mar 7, 2026)
+- ✅ AI Script Parser Fix - Import path corrected, verified working
+- ✅ Teleprompter UX Improvements - Word highlighting, patient mode, progress indicator
 
 ## Pending Tasks
 
